@@ -1,4 +1,4 @@
-# FDS Product Catalog MCP
+# FDS Products MCP
 
 Deterministic MCP server for product lookup, family rules, and BOM-rule retrieval.
 
