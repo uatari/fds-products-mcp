@@ -1,0 +1,161 @@
+{
+  "serverName": "fds-product-catalog",
+  "serverVersion": "0.1.0",
+  "pricingTable": "Products_summary_active_description_family_code_name_price_sku_unit_code",
+  "maxResults": 5,
+  "maxFacetModeCount": 20,
+  "familyTools": [
+    {
+      "toolName": "lookup_vinyl_fence",
+      "description": "Look up Vinyl Fence products in the pricing table.",
+      "familyCode": "VF",
+      "productColumns": ["sku", "name", "price", "design", "width_ft", "height_ft", "color", "is_picket", "box_qty", "vendor_sku", "note"],
+      "facetFields": ["design", "height_ft", "width_ft", "color", "is_picket"],
+      "filters": {
+        "unit_name": { "type": "string" },
+        "design": { "type": "string" },
+        "height_ft": { "type": "number" },
+        "width_ft": { "type": "number" },
+        "color": { "type": "string" },
+        "is_picket": { "type": "boolean_string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "design", "height_ft", "width_ft", "color"]
+    },
+    {
+      "toolName": "lookup_aluminum_fence",
+      "description": "Look up Aluminum Fence products in the pricing table.",
+      "familyCode": "AF",
+      "productColumns": ["sku", "name", "price", "unit_name", "style", "height_in", "width_in", "color", "vendor_sku", "note"],
+      "facetFields": ["unit_name", "style", "height_in", "width_in", "color"],
+      "filters": {
+        "unit_name": { "type": "string" },
+        "style": { "type": "string" },
+        "height_in": { "type": "number" },
+        "width_in": { "type": "number" },
+        "color": { "type": "string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "unit_name", "style", "height_in", "width_in", "color"]
+    },
+    {
+      "toolName": "lookup_vinyl_railing",
+      "description": "Look up Vinyl Railing products in the pricing table.",
+      "familyCode": "VR",
+      "productColumns": ["sku", "name", "price", "unit_name", "color", "height_in", "length_ft", "baluster_material", "baluster_shape", "baluster_color", "vendor_sku", "note"],
+      "facetFields": ["unit_name", "color", "height_in", "length_ft", "baluster_material", "baluster_shape", "baluster_color"],
+      "filters": {
+        "unit_name": { "type": "string" },
+        "color": { "type": "string" },
+        "height_in": { "type": "number" },
+        "length_ft": { "type": "number" },
+        "baluster_material": { "type": "string" },
+        "baluster_shape": { "type": "string" },
+        "baluster_color": { "type": "string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "unit_name", "height_in", "length_ft", "color", "baluster_material", "baluster_shape", "baluster_color"]
+    },
+    {
+      "toolName": "lookup_composite_decking",
+      "description": "Look up Composite Decking products in the pricing table.",
+      "familyCode": "CD",
+      "productColumns": ["sku", "name", "price", "unit_name", "collection", "color", "length_ft", "edge", "vendor_sku", "note"],
+      "facetFields": ["unit_name", "collection", "color", "length_ft", "edge"],
+      "filters": {
+        "unit_name": { "type": "string" },
+        "collection": { "type": "string" },
+        "color": { "type": "string" },
+        "length_ft": { "type": "number" },
+        "edge": { "type": "string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "unit_name", "collection", "color", "length_ft", "edge"]
+    },
+    {
+      "toolName": "lookup_temporary_fence",
+      "description": "Look up Temporary Fence products in the pricing table.",
+      "familyCode": "TF",
+      "productColumns": ["sku", "name", "price", "unit_name", "height_ft", "width_ft", "vendor_sku", "note"],
+      "facetFields": ["unit_name", "height_ft", "width_ft"],
+      "filters": {
+        "unit_name": { "type": "string" },
+        "height_ft": { "type": "number" },
+        "width_ft": { "type": "number" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "unit_name", "height_ft", "width_ft"]
+    },
+    {
+      "toolName": "lookup_chain_link_fence_mesh",
+      "description": "Look up Chain Link Fence mesh products in the pricing table.",
+      "familyCode": "CL",
+      "productColumns": ["sku", "name", "price", "unit_name", "color", "height_ft", "height_in", "mesh_type", "vendor_sku", "note"],
+      "facetFields": ["color", "height_ft", "height_in", "mesh_type"],
+      "filters": {
+        "unit_name": { "type": "constant", "value": "Mesh" },
+        "color": { "type": "string" },
+        "height_ft": { "type": "number" },
+        "height_in": { "type": "number" },
+        "mesh_type": { "type": "string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "height_ft", "height_in", "color", "mesh_type"]
+    },
+    {
+      "toolName": "lookup_chain_link_fence_pipe",
+      "description": "Look up Chain Link Fence pipe products in the pricing table.",
+      "familyCode": "CL",
+      "productColumns": ["sku", "name", "price", "unit_name", "color", "length_ft", "wall_thickness", "material_grade", "end_type", "pipe_diameter_label", "vendor_sku", "note"],
+      "facetFields": ["color", "length_ft", "wall_thickness", "material_grade", "end_type", "pipe_diameter_label"],
+      "filters": {
+        "unit_name": { "type": "constant", "value": "Pipe" },
+        "color": { "type": "string" },
+        "length_ft": { "type": "number" },
+        "wall_thickness": { "type": "number" },
+        "material_grade": { "type": "string" },
+        "end_type": { "type": "string" },
+        "pipe_diameter_label": { "type": "string" },
+        "price_gte": { "type": "number", "column": "price", "operator": ">=" },
+        "price_lte": { "type": "number", "column": "price", "operator": "<=" },
+        "price": { "type": "number", "column": "price", "operator": "=" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "defaultSort": ["price DESC", "color", "pipe_diameter_label", "length_ft", "material_grade", "end_type"]
+    }
+  ],
+  "bomFamilies": {
+    "aluminum-fence": { "familyCode": "AF", "file": "aluminum_fence.md" },
+    "chainlink-fence": { "familyCode": "CL", "file": "chain_link.md" },
+    "composite-board": { "familyCode": "CD", "file": "composite_board.md" },
+    "vinyl-fence": { "familyCode": "VF", "file": "vinyl_fence.md" },
+    "vinyl-railing": { "familyCode": "VR", "file": "vinyl_railing.md" },
+    "temporary-fence": { "familyCode": "TF", "file": "temporary_fence.md" }
+  },
+  "familyRuleFiles": {
+    "aluminum-fence": "aluminum-fence.md",
+    "chainlink-fence": "chainlink-fence.md",
+    "composite-board": "composite-board.md",
+    "vinyl-fence": "vinyl-fence.md",
+    "vinyl-railing": "vinyl-railing.md",
+    "temporary-fence": "temporary-fence.md"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "fds-product-catalog-mcp",
+  "version": "0.1.0",
+  "purpose": "Deterministic MCP server for family-specific pricing lookup, duplicate checking, family rules, and BOM rule retrieval.",
+  "entrypoint": "src/index.js",
+  "runtime": {
+    "language": "node",
+    "transport": "stdio"
+  },
+  "env": {
+    "required": [
+      "N8N_GRIST_RELAY_URL",
+      "N8N_GRIST_RELAY_API_KEY"
+    ],
+    "optional": [
+      "BOM_ROOT_DIR",
+      "FAMILY_RULES_DIR",
+      "REQUEST_TIMEOUT_MS"
+    ]
+  }
+}

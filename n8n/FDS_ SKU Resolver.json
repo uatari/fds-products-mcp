@@ -1,0 +1,699 @@
+{
+  "name": "FDS: SKU Resolver",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b55ac22a-94fe-4f7d-8f4c-6a92b53a3b86",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1712,
+        224
+      ],
+      "id": "2b3d82c5-9d29-41bb-8172-90a9aa51e66a",
+      "name": "Webhook",
+      "webhookId": "b55ac22a-94fe-4f7d-8f4c-6a92b53a3b86",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mnKodBdTnpV881rf",
+          "name": "FDS_RESOLVER_HEADER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -864,
+        -192
+      ],
+      "id": "bc6a2cd2-3cee-4564-b2a1-b0f3538b3d73",
+      "name": "Respond to Webhook",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Resolve ONLY this item\n{{ JSON.stringify($json.item_to_resolve) }}\n\n",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a quote line item resolver for Fence Deck Supply.\n\n### Memory (auto-managed)\n\nPrevious responses from this deal appear in conversation history above.\n\n**Using memory (MANDATORY before ANY BOM/lookup decision):**\n- FIRST: scan conversation history for a previously resolved base item (ex: mesh, panels, sections) and extract `context_facts`.\n- Treat `context_facts` as authoritative defaults for the current item unless the current item explicitly overrides them.\n- Reuse `resolved_so_far` SKUs when the same product is needed again (still verify price once).\n- Reuse `lookup_findings` to avoid redundant searches.\n- Your `_memory.cumulative_summary` must include ALL prior findings (resolved_so_far, context_facts, lookup_findings).\n\n**context_facts (derive from history):**\n- fence_family / product_family\n- L_ft (run length / mesh length)\n- H_ft and/or H_in\n- color (normalized)\n- mesh_type (if applicable)\n- any other spec needed by BOM formulas\n\n**Hard rule:** If the current item is fuzzy (quantity=-1 or sku=null), you MUST attempt to populate L_ft/H/color from memory before asking/assuming anything.\n\n---\n\n## Resolution Flow\n\n### Step 0: Build Context From Memory (REQUIRED)\n\nBefore doing anything else:\n1. Parse conversation history for:\n   - `resolved_items` and their specs\n   - any explicitly stated length/height/color/mesh_type\n2. Populate `conversation history context_facts` with best-known:\n   - L_ft, H_ft/H_in, color, mesh_type (if chainlink)\n3. If any are missing, keep them blank/0, but do NOT claim they are missing if they exist in history.\n\n---\n\n### Step 1: Already resolved?\n\nIf `item_to_resolve` has SKU + quantity > 0:\n- Call lookup tool once to verify price\n- Output resolved_item with confidence = 1.0\n- DONE\n\n### Step 2: Fuzzy item? Get BOM rules\n\nIf quantity = -1 or sku = null:\n\n**Call `get_bom_rules(family_name)` ONCE** to get:\n- Quantity formulas\n- Component specs (diameters, defaults)\n- Lookup params templates\n- Apply the formulas exactly as specified in BOM.\n\n### Step 3: Extract base values from Context\n\nFrom `conversation history context_facts`, set base values for BOM:\n- Length/quantity (L_ft or count)\n- Height (H_ft/H_in)\n- Color\n- Other specs needed by BOM\n\n**Hard rule:** If BOM requires L_ft/H/color and they exist in `conversation history context_facts`, you MUST use them.  \nOnly mark missing if they are truly absent from both current item AND memory.\n\n### Step 4: Compute quantities using BOM formulas\n\nApply BOM formulas to compute qty for each component.\n\n### Step 5: Lookup each component (max 2 attempts each)\n\nFor each component from BOM:\n\n**Attempt 1 (broad) - most important filters only**\n\nif lookup yielded more than one item do\n\n**Attempt 2 (narrow) - add secondary filters** (use facets from output if exist)\n\n**No Attempt 3.** After 2 attempts, STOP trying this component. Note \"not found\" and move to next component. Do NOT retry with different params.\n\n### Step 6: Output\n\nOutput final JSON and STOP.\n\n---\n\n## MCP Tools\n\n**BOM Tool (call once per item):**\n- `get_bom_rules` - params: family_name\n  - Returns: quantity formulas, component specs, lookup templates\n\n**Lookup Tools:**\n- `lookup_chain_link_fence_mesh` - params: height_ft, height_in, color, mesh_type, price, price_lte, price_gte\n- `lookup_chain_link_fence_pipe` - params: length_ft, color, wall_thickness, material_grade, end_type, pipe_diameter_label, price, price_lte, price_gte\n- `lookup_temporary_fence` - params: unit_name, height_ft, width_ft, price, price_lte, price_gte\n- `lookup_vinyl_fence` - params: unit_name, height_ft, color, design, is_picket, price, price_lte, price_gte\n- `lookup_aluminum_fence` - params: unit_name, height_ft, design, price, price_lte, price_gte\n- `lookup_composite_decking` - params: unit_name, collection, color, length_ft, edge, price, price_lte, price_gte\n- `lookup_vinyl_railing` - params: unit_name, color, length_ft, price, price_lte, price_gte\n\n**All params required.** Use `\"\"` for unused strings, `0` for unused numbers.\n\n## Output Format (STRICT SCHEMA)\n\n```json\n{\n  \"resolved_items\": [\n    {\n      \"name\": \"Product name from lookup\",\n      \"description\": \"line posts (9 pcs from BOM: 100ft / 10ft spacing)\",\n      \"sku\": \"CL-PIP-F8BFFA\",\n      \"quantity\": 9,\n      \"unit\": \"pcs\",\n      \"unit_price\": 30.16,\n      \"line_total\": 271.44,\n      \"confidence\": 1.0\n    }\n  ],\n  \"unresolved_items\": [\n    {\n      \"original\": { \"description\": \"top rail\", \"quantity\": 5 },\n      \"reason\": \"no_sku_match\",\n      \"suggestions\": [\"No 1-3/8\\\" x 21ft SE found\", \"Try 10.5ft sticks instead\"]\n    }\n  ],\n  \"note_for_estimator\": \"Line posts: selected Resi grade. Top rail: not found at 21ft.\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -112,
+        240
+      ],
+      "id": "a047085d-5eaf-456e-b47e-342bccf66676",
+      "name": "AI Agent",
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -448,
+        624
+      ],
+      "id": "4cfe71c0-3b92-4d47-8ad3-2b503c3836c1",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "uZaKWNAmBpqJQMPB",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let error = null;\nlet input = $input.first().json.body;                                             \nlet output = {};\n\ntry {                                                                                 output.deal_id = input.deal_id;\n    output.itemsCount = input?.items.length;\n    output.status = 'accepted';\n  \n                                                                         \n} catch (e) {                                                               \n  output.error = e.message;\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        -192
+      ],
+      "id": "def4f936-da20-4766-a2c2-7d3ccd9e0e54",
+      "name": "Acceptance Response Builder"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.items",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": "body.request_verbatim",
+        "options": {
+          "destinationFieldName": "item_to_resolve"
+        }
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        224
+      ],
+      "id": "ba6e52cd-f994-49f2-9059-79f0fbb90ef4",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://n8n-fds.younext.ai/mcp/9b9a4706-ba5d-4f51-81e3-28432737d6df",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        624
+      ],
+      "id": "33dc3b1f-7737-48ae-a1cc-c942a488d2bf",
+      "name": "Product Lookup",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bIzbPZmh9ISTgPO6",
+          "name": "FDS-MCP-HEADER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Tool Name: get_bom_rules\n\nDescription:\n\nReturns the Bill of Materials (BOM) rules document for a specific product family.\n\nThis tool provides structured rules used to determine required materials and component logic.\nIt does not return pricing information.\n\nThe family_name parameter must be exactly one of the following values:\n\naluminum-fence\n\nchainlink-fence\n\ncomposite-board\n\nvinyl-fence\n\nvinyl-railing\n\ntemporary-fence\n\nDo not infer or modify these values. Use the exact string.\n\nIf you want it even stricter for an agent:\n\nReturns BOM rules text for a product family.\nAllowed family_name values (must match exactly):\naluminum-fence, chainlink-fence, composite-board, vinyl-fence, vinyl-railing, temporary-fence.\n\nDoes not return pricing. Use price lookup tools separately.",
+        "workflowId": {
+          "__rl": true,
+          "value": "vqeTvYm2LHwhkLvM",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/vqeTvYm2LHwhkLvM",
+          "cachedResultName": "FDS: MCP Tool - Family Bom Retrieval"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "family_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('family_name', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "family_name"
+          ],
+          "schema": [
+            {
+              "id": "family_name",
+              "displayName": "family_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        624
+      ],
+      "id": "f19f54d9-102a-4196-8b81-c4bca0b206e8",
+      "name": "get_bom_rules"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').first().json.body.deal_id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        624
+      ],
+      "id": "12c1979f-ac91-47e2-9913-8731144dbd0e",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"resolved_items\": [\n    {\n      \"name\": \"Product name from lookup\",\n      \"description\": \"line posts (9 pcs from BOM: 100ft / 10ft spacing)\",\n      \"sku\": \"CL-PIP-F8BFFA\",\n      \"quantity\": 9,\n      \"unit\": \"pcs\",\n      \"unit_price\": 30.16,\n      \"confidence\": 1.0\n    }\n  ],\n  \"unresolved_items\": [\n    {\n      \"original\": { \"description\": \"top rail\", \"quantity\": 5 },\n      \"reason\": \"no_sku_match\",\n      \"suggestions\": [\"No 1-3/8\\\" x 21ft SE found\", \"Try 10.5ft sticks instead\"]\n    }\n  ],\n  \"note_for_estimator\": \"Line posts: selected Resi grade. Top rail: not found at 21ft.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        624
+      ],
+      "id": "33369e43-e75f-4e18-ab13-7be1d7b1a141",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -480,
+        224
+      ],
+      "id": "a67c7550-8bd8-4c0a-bf8c-b82ae772e318",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/53f59c50-bafa-4711-a954-138d1c15abd0-tool-calls",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "=Resolved {{ $('AI Agent').item.json.output.resolved_items.length }} items(s) from request {{ $('Webhook').first().json.body.emoji_code }}. Unresolved count: {{ $('AI Agent').item.json.output.unresolved_items.length }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        480,
+        240
+      ],
+      "id": "834bf82c-e3d3-4870-bb10-cc78419799fd",
+      "name": "NTFY Item Report",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/53f59c50-bafa-4711-a954-138d1c15abd0-tool-calls",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "=Done processing {{ $json.total }} items in {{ $('Webhook').first().json.body.emoji_code }} request",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        16,
+        16
+      ],
+      "id": "3a416f05-12ef-4e83-9388-d02e516c9374",
+      "name": "NTFY Done Report",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/53f59c50-bafa-4711-a954-138d1c15abd0-tool-calls",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "=Request {{ $('Webhook').item.json.body.emoji_code }} with {{ $('Webhook').item.json.body.items.length }} items has been accepted by SKU resolver",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -640,
+        -192
+      ],
+      "id": "9c7525e6-4df3-4d99-89b1-1afb60a21a5f",
+      "name": "NTFY Acceptance Report",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook').first().json.body.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "quote_callback_secret",
+              "value": "={{ $('Webhook').first().json.body.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "dealId",
+              "value": "={{ $('Webhook').first().json.body.deal_id }}"
+            },
+            {
+              "name": "=accountId",
+              "value": "={{ $('Webhook').first().json.body.account_id }}"
+            },
+            {
+              "name": "contactId",
+              "value": "={{ $('Webhook').first().json.body.contact_id }}"
+            },
+            {
+              "name": "=resolved_items",
+              "value": "={{ $json.output.resolved_items }}"
+            },
+            {
+              "name": "unresolved_items",
+              "value": "={{ $json.output.unresolved_items }}"
+            },
+            {
+              "name": "note_for_estimator",
+              "value": "={{ $json.output.note_for_estimator }}"
+            },
+            {
+              "name": "correlationId",
+              "value": "={{ $('Webhook').first().json.body.correlation_id}}"
+            },
+            {
+              "name": "shipping_cost",
+              "value": "={{ $('Webhook').first().json.body.shipping_cost }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        256,
+        240
+      ],
+      "id": "bc287555-4116-4b2a-997d-f27ecedecee8",
+      "name": "Quote Callback"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "068620f1-b335-40f5-9c1d-fe72521d8a2d",
+              "name": "start_time",
+              "value": "={{ $now }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1088,
+        224
+      ],
+      "id": "54d3cda9-812d-4d01-b146-dcc237758d21",
+      "name": "Add Start Time"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn [{\n  json: {\n    total: items.length,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        16
+      ],
+      "id": "8fb19bdf-b775-4b45-ab06-160cc70528ce",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "mode": "delete",
+        "deleteMode": "all"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        -128
+      ],
+      "id": "94f29c0c-3bbf-4b58-9176-d541660134c2",
+      "name": "Chat Memory Manager"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').first().json.body.deal_id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        112
+      ],
+      "id": "d6fdc550-acc8-4fb2-9c59-56d091a8bda0",
+      "name": "Simple Memory1"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-fds.younext.ai",
+            "user-agent": "axios/1.13.2",
+            "content-length": "1163",
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "45.48.115.235",
+            "cf-ipcountry": "US",
+            "cf-ray": "9d53accdee748409-LAX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "d49f9c0a-babd-444b-b8ea-aa2c541c3a50",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "fds_resolver_header": "ECvkcTtaLGMhZdURAK1jsO4ukyyyG4FKKBL21uIQsXAJXByjkOmvOK6bR4z95zgz",
+            "x-forwarded-for": "45.48.115.235",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "deal_id": "7132314000001839001",
+            "account_id": "7132314000001546017",
+            "contact_id": "7132314000001525014",
+            "callback_url": "https://fds-api-stage.younext.ai/api/quote-callback",
+            "callback_secret": "6f3c9e8a4b2d7f1c5e9a0d3b8f6c2a1e7b4d9f0c6a3e1b8d5c2f7a9e4d1c8b3",
+            "items": [
+              {
+                "product_family": "chainlink-fence",
+                "description": "100 feet of 6 feet black and green chain link mesh",
+                "quantity": 100,
+                "sku": "CL-MSH-530C36",
+                "unit": "ft"
+              },
+              {
+                "product_family": "chainlink-fence",
+                "description": "all the post and pipes, whatever is needed",
+                "quantity": -1,
+                "sku": null,
+                "unit": null
+              }
+            ],
+            "request_verbatim": "Caller Jimmy March (phone: 445-900-3688) requested a quote for 100 feet of 6-foot (72 inch) black/green chain link mesh fencing, with delivery to ZIP code 19053 (Feasterville Trevose, PA). He needs the materials next week and provided the email uatari@gmail.com for the quote. He also requested all necessary posts and pipes to be included in the quote. No additional items were requested.",
+            "correlation_id": "019c5e31-9dcd-7cc7-a6db-da53bd5d8730",
+            "emoji_code": "🐵🌼🌵",
+            "shipping_cost": 0,
+            "customer_phone": "+14459003688",
+            "customer_name": "Jimmy March",
+            "customer_email": "uatarI@gmail.com"
+          },
+          "webhookUrl": "https://n8n-fds.younext.ai/webhook/b55ac22a-94fe-4f7d-8f4c-6a92b53a3b86",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Acceptance Response Builder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Add Start Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "NTFY Acceptance Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Quote Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acceptance Response Builder": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Lookup": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_bom_rules": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NTFY Item Report": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote Callback": {
+      "main": [
+        [
+          {
+            "node": "NTFY Item Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Start Time": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "NTFY Done Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NTFY Done Report": {
+      "main": [
+        [
+          {
+            "node": "Chat Memory Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "Chat Memory Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "92905f5e-7a7f-41fc-9504-75d7b9f29b17",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8a06cf7ecb558d0b7779cf08af35e39db0e58d7f6882daa3e960ae524cea9c3"
+  },
+  "id": "6Xx7Kr2RJCqMhbAhRdN6J",
+  "tags": [
+    {
+      "updatedAt": "2026-02-02T07:10:47.391Z",
+      "createdAt": "2026-02-02T07:10:47.391Z",
+      "id": "qhaoY6858ZgxSHts",
+      "name": "FDS"
+    }
+  ]
+}

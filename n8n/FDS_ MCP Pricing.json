@@ -1,0 +1,1071 @@
+{
+  "name": "FDS: MCP Pricing",
+  "nodes": [
+    {
+      "parameters": {
+        "description": "## Query Patterns\n\n  **\"What [X] are available?\"** → Leave that field EMPTY to get options in facets\n  - \"what widths?\" → don't pass width_in, read options from facets.width_in\n  - \"what heights?\" → don't pass height_in, read options from facets.height_in\n  - \"what styles?\" → don't pass style, read options from facets.style\n\n  **Asking about gates:**\n  - \"gate\" or \"gates\" → unit_name=Gate\n  - Gate widths are in `width_in` field (48 or 60), NOT a separate \"gate_width\" field\n\n  Updated full MCP tool description:\n\n  Look up \"Aluminum Fence\" products in the pricing database.\n\n  ## Input Normalization (REQUIRED)\n\n  BEFORE calling, map customer words to tokens:\n  - section, fencing, fence section → unit_name=Panel\n  - gate, gates → unit_name=Gate\n  - post, posts → unit_name=Post\n  - 2-rail → style=Concord\n  - lex → style=Lexington\n  - charles → style=Charleston\n\n  NEVER pass raw customer words. Always use normalized token.\n\n  ## Query Patterns\n\n  **\"What [X] are available?\"** → Leave that field EMPTY, read from facets\n  - \"what widths?\" → omit width_in, check facets.width_in\n  - \"what heights?\" → omit height_in, check facets.height_in\n  - \"what styles?\" → omit style, check facets.style\n\n  ## Response Handling\n\n  **mode** determines next action:\n  - \"exact\" (1 result) → give price\n  - \"full\" (2-5 results) → list options\n  - \"guided/narrow\" → ask about `suggested_filter`\n  - \"none\" → no matches\n\n  **facets** shows available values for each field.",
+        "workflowId": {
+          "__rl": true,
+          "value": "rHa21jd57smRwcxHqBNWO",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/rHa21jd57smRwcxHqBNWO",
+          "cachedResultName": "FDS: WS - Aluminum Fence - Price Lookup"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "height_in": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_in', `Height in inches. If the user does not specify, set to 0.`, 'string') }}",
+            "width_in": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('width_in', `Width in inches. If user does not specify, set to 0.`, 'string') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Minimum price. If user does not specify, send 0.`, 'string') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Maximum price. If user does not specify, send 0.`, 'string') }}",
+            "style": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('style', `If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "unit_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('unit_name', `If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "style",
+              "displayName": "style",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "railt_type",
+              "displayName": "railt_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "bottom_type",
+              "displayName": "bottom_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "height_in",
+              "displayName": "height_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "width_in",
+              "displayName": "width_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_order",
+              "displayName": "price_order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "max_results",
+              "displayName": "max_results",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -512,
+        176
+      ],
+      "id": "8e3c4916-aa6a-4fb9-b52f-c6c896f5890d",
+      "name": "lookup_aluminum_fence"
+    },
+    {
+      "parameters": {
+        "description": "# Vinyl Fence\n\n## Tool\nUse `lookup_vinyl_fence` for all vinyl fence lookups.\n\n## Guardrails\n\n- If not in tool results → does not exist\n- Do not invent designs or colors\n- Product options come from lookup tool\n- Stock status comes from this file (see Availability section)\n- You don't mix and match, if you talk about certain color/design panels, posts and caps must be the same color, and posts must be from the same collection\n- if you going to list 3 items and all priced the same, collapse\n\n## Fixed Facts\n\n### Defaults\n- **Assume 6x8 white privacy** unless customer explicitly states otherwise\n- DO NOT ASK: style, color, picket vs privacy, height, width — only ask if customer brings it up\n- If dimensions sound off or unclear → assume 6x8 white privacy, then confirm\n- Customer's explicit specs override defaults — if they repeat, accept without questioning\n- Parse \"[qty] [dimension]\": \"twenty 6x8\" = 20 sections of 6x8, NOT \"26x8\"\n\n\n### Misc\n- Gates match fence height (don't ask gate height separately)\n\n## Availability\n\n- **In Stock:** White Privacy 6'H x 8'W, 4'H x 8'W\n- **2-3 Days:** Everything else\n\n## Quote Collection\n\n**Default:** \"vinyl fence\" = sections (don't ask \"sections, gates, or posts?\")\n\n**Flow:**\n1. Ask qty: \"How many sections?\" — if unsure, ask \"How many linear feet of fence?\"\n2. Then: \"Any gates?\" → if yes, ask qty; width 4 or 5 ft\n3. Then: \"Do you need posts?\"\n   - If no: set qty = 0\n   - If yes: \"How many line posts? End posts? Corner posts?\" → if unsure, set qty = -1\n4. Caps: assume they need caps (don't ask). If customer asks about cap styles → \"We have a few to choose from\"\n\n*Call tool to get available heights, colors, designs from facets.*\n\n*If customer asks specifically about any product detail → call tool, give price.*\n\n## Pricing\n\nUse `pricing_tool` for ALL product questions. Follow response mode:\n- exact → give price\n- full → list options\n- guided/narrow → ask about `suggested_filter`\n\n### Comparison Requests\nWhen customer asks to \"compare\" or wants \"all prices\":\n- **Omit the dimension they want to compare** (e.g., omit `design` to compare styles)\n- Call tool with other known filters → get multiple results → list them all with prices\n- Do NOT repeatedly ask for the thing they want to compare\n",
+        "workflowId": {
+          "__rl": true,
+          "value": "IQyaOBuB8oMJWsoD",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/IQyaOBuB8oMJWsoD",
+          "cachedResultName": "FDS: MCP Lookup Tool - Vinyl Fence"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "height_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_ft', `If the user does not specify this, send 0`, 'number') }}",
+            "width_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('width_ft', `If the user does not specify this, send 0`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `If the user does not specify this, send 0`, 'number') }}",
+            "design": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('design', `If the user does not specify this, send an empty string \"\"`, 'string') }}",
+            "color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('color', `If the user does not specify this, send an empty string \"\" instead of null`, 'string') }}",
+            "is_picket": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('is_picket', `If the user does not specify this, send an empty string \"\"`, 'boolean') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `If the user does not specify this, send 0`, 'number') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `If the user does not specify this, send 0`, 'number') }}",
+            "unit_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('unit_name', `Set from user wording: Section for sections/panels/widths, Gate for gate, Post for post. If the user does not specify this, send an empty string \"\"\n`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "design",
+              "displayName": "design",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "height_ft",
+              "displayName": "height_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "color",
+              "displayName": "color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "width_ft",
+              "displayName": "width_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "is_picket",
+              "displayName": "is_picket",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -576,
+        0
+      ],
+      "id": "17a4705c-3daa-4d8e-a5ac-2216df95b355",
+      "name": "lookup_vinyl_fence"
+    },
+    {
+      "parameters": {
+        "description": "Perfect. Now we mirror that structure exactly, but grounded strictly in your Vinyl Railing data.\n\nNo invented values. No extra semantics. Only what exists in your CSV.\n\nLook up \"Vinyl Railing\" products in the pricing database\nParameters (ALL OPTIONAL)\nunit_name: string\n\nProduct type.\nValues in data: Section Kit\n\nsection, sections, railing section → unit_name=Section Kit\n\nIf not specified, send \"\".\n\nheight_in: number\n\nRailing height in inches.\nValues: 36, 42.\nIf not specified, send 0.\n\nlength_ft: number\n\nRailing length in feet.\nValues: 4, 6, 8, 10.\nIf not specified, send 0.\n\ncolor: string\n\nProduct color.\nValues: White\n\nwhite → color=White\n\nIf not specified, send \"\".\n\nbaluster_material: string\n\nBaluster material.\nValues: Vinyl, Aluminum\n\nvinyl → baluster_material=Vinyl\n\naluminum → baluster_material=Aluminum\n\nIf not specified, send \"\".\n\nbaluster_shape: string\n\nBaluster shape.\nValues: Square, Round\n\nsquare → baluster_shape=Square\n\nround → baluster_shape=Round\n\nIf not specified, send \"\".\n\nbaluster_color: string\n\nBaluster color.\nValues: White, Black\n\nwhite → baluster_color=White\n\nblack → baluster_color=Black\n\nIf not specified, send \"\".\n\nprice_lte: number\n\nMaximum price.\nIf not specified, send 0.\n\nprice_gte: number\n\nMinimum price.\nIf not specified, send 0.\n\nprice: number\n\nExact price match.\nIf not specified, send 0.\n\nInput Normalization\n\nMap customer language before calling the tool.\n\nCRITICAL – Unit Type\n\nsection, sections, railing section → unit_name=Section Kit\n\nIf customer asks about length options or railing lengths\n→ MUST set unit_name=Section Kit\n\nAttribute Mapping\n\n36 inch, 36\", 3 ft → height_in=36\n\n42 inch, 42\", 3.5 ft → height_in=42\n\n4 ft → length_ft=4\n\n6 ft → length_ft=6\n\n8 ft → length_ft=8\n\n10 ft → length_ft=10\n\nvinyl baluster → baluster_material=Vinyl\n\naluminum baluster → baluster_material=Aluminum\n\nsquare baluster → baluster_shape=Square\n\nround baluster → baluster_shape=Round\n\nblack balusters → baluster_color=Black\n\nwhite balusters → baluster_color=White\n\nwhite railing → color=White\n\nHard Guards (Pre-Call Validation)\n\nThese rules MUST be enforced before calling the pricing tool.\n\nField Compatibility\n\nlength_ft\n\nAllowed only when unit_name=Section Kit\n\nIf unit not specified but length is mentioned → FORCE unit_name=Section Kit\n\nheight_in\n\nAllowed for Section Kit\n\nBaluster fields\n\nAllowed only for Section Kit\n\nMandatory Overrides\n\nIf query intent is about lengths\n(length options, how long, 8 foot railing, 10 foot section)\n→ FORCE unit_name=Section Kit\n\nIf customer explicitly says section\n→ return ONLY unit_name=Section Kit\n\nInvalid Combination Handling\n\nIf customer asks for:\n\nrailing post lengths\n\nbaluster specs without railing context\n\n→ Respond in guided mode and clarify:\n\n“Railing products are section kits. Are you asking about railing sections?”\n\nQuery Patterns\n\n\"What vinyl railing do you have?\"\n→ call with NO parameters\n\n\"What heights?\"\n→ omit height_in, read facets.height_in\n\n\"What lengths?\"\n→ omit length_ft, read facets.length_ft\n\n\"Do you have aluminum balusters?\"\n→ baluster_material=Aluminum\n\n\"Show 42 inch railing\"\n→ height_in=42, unit_name=Section Kit\n\nResponse Handling\n\nmode\n\nexact (1 result) → give price\n\nfull (2–5 results) → list options\n\nguided / narrow → ask about suggested_filter\n\nnone → no matches\n\nfacets exposes available values per field.\n\nNormalization Test Cases (Deterministic)\nHeight Detection\nUser Input\tExpected\n36 inch railing\theight_in=36, unit_name=Section Kit\n42\" white railing\theight_in=42, color=White, unit_name=Section Kit\nLength Enforcement\nUser Input\tExpected\n8 foot railing\tlength_ft=8, unit_name=Section Kit\nrailing length options\tunit_name=Section Kit\nBaluster Mapping\nUser Input\tExpected\naluminum square baluster railing\tbaluster_material=Aluminum, baluster_shape=Square\nblack round balusters\tbaluster_color=Black, baluster_shape=Round\nOne-Line Safety Rules\n\nLengths → Section Kit only\n\nDo not invent unit types\n\nDo not assume color beyond White\n\nInvalid combos → clarify, don’t infer",
+        "workflowId": {
+          "__rl": true,
+          "value": "8QUnFFWPwrntuJYd",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/8QUnFFWPwrntuJYd",
+          "cachedResultName": "FDS: MCP Lookup Tool - Vinyl Railing"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "height_in": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_in', `Height in inches. If the user does not specify this, set to 0.`, 'number') }}",
+            "length_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('length_ft', `Length in feet. If the user does not specify this, set to 0.`, 'number') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Maximum price. If the user does not specify this, send 0.`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `Exact price. If the user does not specify this, send 0.`, 'number') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Minimum price. If the user does not specify this, send 0.`, 'number') }}",
+            "unit_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('unit_name', `Unit type (e.g., Section, Post). If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('color', `Section Color value. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "baluster_material": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('baluster_material', `Baluster material. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "baluster_shape": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('baluster_shape', `Baluster shape. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "baluster_color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('baluster_color', `Baluster color. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "color",
+              "displayName": "color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "height_in",
+              "displayName": "height_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "length_ft",
+              "displayName": "length_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "baluster_material",
+              "displayName": "baluster_material",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "baluster_shape",
+              "displayName": "baluster_shape",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "baluster_color",
+              "displayName": "baluster_color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        272
+      ],
+      "id": "fdab1818-1664-4843-8ca0-a7399cd23233",
+      "name": "lookup_vinyl_railing"
+    },
+    {
+      "parameters": {
+        "description": "# Look up \"Composite Decking\" products in the pricing database\n\n---\n\n## Parameters (ALL OPTIONAL)\n\n### unit_name: string\nComposite Decking Component type.\nValues in data: Board (we currently list only boards)\n\n- board, deck board, decking board → `unit_name=Board`\n\nIf not specified, send `\"Board\"`.\n\n---\n\n### collection: string\n\nDecking collection. **Do NOT ask customer about collection.**\n\n**Auto-derive from color:** If customer names an exact catalog color, set collection automatically:\n- Biscayne, Caramel, Hatteras, Jasper, Rainier, Salt Flat → `collection=Lineage`\n- Cinnamon Cove, Coastal Bluff, Foggy Wharf, Honey Grove, Rocky Harbor, Toasted Sand → `collection=Enhance Naturals`\n- Clam Shell, Saddle Enhance, Tide Pool → `collection=Enhance Basics`\n- Havana Gold, Lava Rock, Rope Swing, Spiced Rum, Tiki Torch → `collection=Transcend`\n- Malted Barley, Millstone, Pebble Gray, Saddle Select, Whiskey Barrel → `collection=Select`\n- Island Mist → ask: \"Lineage or Transcend?\" (only color in two collections)\n\n**Vague color descriptions** (e.g., \"light brown\", \"to match my deck\", \"something warm\") → leave both color and collection empty for estimator.\n\nValues: Enhance Basics, Enhance Naturals, Lineage, Select, Transcend\n\nIf not specified, send `\"\"`.\n\n---\n\n### color: string\n\nBoard color.\n\nValues:\n\nBiscayne\nCaramel\nCinnamon Cove\nClam Shell\nCoastal Bluff\nFoggy Wharf\nHatteras\nHavana Gold\nHoney Grove\nIsland Mist\nJasper\nLava Rock\nMalted Barley\nMillstone\nPebble Gray\nRainier\nRocky Harbor\nRope Swing\nSaddle Enhance\nSaddle Select\nSalt Flat\nSpiced Rum\nTide Pool\nTiki Torch\nToasted Sand\nWhiskey Barrel\n\nIf not specified, send `\"\"`.\n\n---\n\n### length_ft: number\n\nBoard length in feet.\nValues: 12, 16, 20\n\nIf not specified, send `0`.\n\n---\n\n### edge: string\n\nBoard edge type. **Do NOT ask customer about edge — only use if customer specifies.** Estimator handles if not specified.\n\nValues: Grooved, Square\n\nIf not specified, send `\"\"`.\n\n---\n\n### price_lte: number\n\nMaximum price.\nIf not specified, send `0`.\n\n---\n\n### price_gte: number\n\nMinimum price.\nIf not specified, send `0`.\n\n---\n\n### price: number\n\nExact price match.\nIf not specified, send `0`.\n\n---\n\n# Input Normalization\n\nMap customer language before calling the tool.\n\n---\n\n## CRITICAL – Unit Type\n\n- board, deck board, decking board → `unit_name=Board`\n\n---\n\n## Collection Mapping\n\n- enhance basics → `collection=Enhance Basics`\n- enhance naturals → `collection=Enhance Naturals`\n- lineage → `collection=Lineage`\n- select → `collection=Select`\n- transcend → `collection=Transcend`\n\nIf customer says \"Enhance\"\n→ MUST ask: Basics or Naturals\n\n---\n\n## Color Mapping\n\nOnly exact catalog colors are allowed.\n\nIf spoken variant closely matches a listed color\n→ confirm exact name before calling tool.\n\nDo NOT invent color normalization.\n\n---\n\n## Length Mapping\n\n- 12 foot, 12 ft → `length_ft=12`\n- 16 foot, 16 ft → `length_ft=16`\n- 20 foot, 20 ft → `length_ft=20`\n\n---\n\n## Edge Mapping\n\n- grooved → `edge=Grooved`\n- square edge → `edge=Square`\n\n---\n\n# Hard Guards (Pre-Call Validation)\n\nThese rules MUST be enforced before calling the pricing tool.\n\n---\n\n## Collection ↔ Color Compatibility\n\nIf collection is specified:\n\n- Enhance Basics → Clam Shell, Saddle Enhance, Tide Pool\n- Enhance Naturals → Cinnamon Cove, Coastal Bluff, Foggy Wharf, Honey Grove, Rocky Harbor, Toasted Sand\n- Lineage → Biscayne, Caramel, Hatteras, Island Mist, Jasper, Rainier, Salt Flat\n- Select → Malted Barley, Millstone, Pebble Gray, Saddle Select, Whiskey Barrel\n- Transcend → Havana Gold, Island Mist, Lava Rock, Rope Swing, Spiced Rum, Tiki Torch\n\nIf color is specified:\n\n- Biscayne, Caramel, Hatteras, Jasper, Rainier, Salt Flat → Lineage\n- Cinnamon Cove, Coastal Bluff, Foggy Wharf, Honey Grove, Rocky Harbor, Toasted Sand → Enhance Naturals\n- Clam Shell, Saddle Enhance, Tide Pool → Enhance Basics\n- Havana Gold, Lava Rock, Rope Swing, Spiced Rum, Tiki Torch → Transcend\n- Malted Barley, Millstone, Pebble Gray, Saddle Select, Whiskey Barrel → Select\n- Island Mist → Lineage OR Transcend\n\nIf dependency is violated → configuration does not exist.\n\n---\n\n## Edge ↔ Length Compatibility\n\n- Square → 16 or 20 only\n- Grooved → 12, 16, 20\n- 12 ft → Grooved only\n- 16 ft → Grooved or Square\n- 20 ft → Grooved or Square\n\nIf invalid combination requested → does not exist.\n\n---\n\n## Mandatory Overrides\n\nIf collection and color combination resolves to exactly one valid configuration\n→ send only that configuration\n→ do not enumerate alternatives\n\n---\n\n## Invalid Combination Handling\n\nIf customer requests:\n\n- Unlisted brand\n  → \"We carry only Trex.\"\n\n- Unlisted color\n  → invalid\n\n- 12 ft square edge\n  → invalid\n\nDo not infer. Do not adjust.\n\n---\n\n# Query Patterns\n\n\"What Trex decking do you have?\"\n→ call with NO parameters\n\n\"What colors in Lineage?\"\n→ `collection=Lineage`, omit color\n\n\"Do you have 20 foot square edge?\"\n→ `length_ft=20`, `edge=Square`\n\n\"12 foot decking options?\"\n→ `length_ft=12`, `edge=Grooved`\n\n---\n\n# Response Handling\n\n**mode**\n\n- `exact` (1 result) → give price\n- `full` (2–5 results) → list options\n- `guided / narrow` → ask about `suggested_filter`\n- `none` → no matching configuration exists\n\n`facets` exposes available values per field.\n\n---\n\n# Normalization Test Cases (Deterministic)\n\n### Collection → Color\n\n| User Input | Expected |\n|------------|----------|\n| Lineage Biscayne | collection=Lineage, color=Biscayne |\n| Havana Gold | color=Havana Gold, collection=Transcend |\n\n---\n\n### Edge Rules\n\n| User Input | Expected |\n|------------|----------|\n| 12 foot square edge | invalid |\n| 16 foot square edge | valid |\n| 20 foot grooved | valid |\n\n---\n\n# One-Line Safety Rules\n\n- Only Trex\n- No unlisted colors\n- 12 ft → Grooved only\n- Do not guess collection\n- Invalid combos → do not adjust\n",
+        "workflowId": {
+          "__rl": true,
+          "value": "U1P2glYEanSCqlBA",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/U1P2glYEanSCqlBA",
+          "cachedResultName": "FDS: MCP Lookup Tool - Composite Decking"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Minimum price. If the user does not specify this, send 0.`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `Exact price match. If the user does not specify this, send 0.`, 'number') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Maximum price. If the user does not specify this, send 0.`, 'number') }}",
+            "length_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('length_ft', `Board length in feet. If the user does not specify this, set to 0.`, 'number') }}",
+            "color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('color', `Board color. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "collection": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('collection', `Decking collection name. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "edge": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('edge', `Board edge type. If the user does not specify this, send an empty string \"\" instead of null.`, 'string') }}",
+            "unit_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('unit_name', `Component type, set Board if not specified`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "color",
+              "displayName": "color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "length_ft",
+              "displayName": "length_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "collection",
+              "displayName": "collection",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "edge",
+              "displayName": "edge",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        288
+      ],
+      "id": "6ac9b070-8afd-4ddf-95a6-ba91a93fcf5e",
+      "name": "lookup_composite_decking"
+    },
+    {
+      "parameters": {
+        "description": "# Look up \"Temporary Fence\" products in the pricing database\n\n---\n\n## Parameters (ALL OPTIONAL)\n\n### unit_name: string\n\nProduct type. Values in data: `Section`, `Stand`, `Clamp`, `Hardware`.\n\n- section, panel → `unit_name=Section`\n- stand, base → `unit_name=Stand`\n- clamp, coupler → `unit_name=Clamp`\n- hardware → `unit_name=Hardware`\n\nIf not specified, send `\"\"`.\n\n---\n\n### height_ft: number\n\nPanel height in feet.\nValues: 6, 8.\nIf not specified, send `0`.\n\n---\n\n### width_ft: number\n\nPanel width in feet.\nValues: 10, 12.\nIf not specified, send `0`.\n\n---\n\n## Dimension Parsing\n\nWhen customer says \"8 x 12\" or \"8 by 12\" → `height_ft=8`, `width_ft=12`\nWhen customer says \"6 x 10\" or \"6 by 10\" → `height_ft=6`, `width_ft=10`\n\n**Do NOT re-ask dimensions already provided.** If customer gave both height and width, call tool immediately.\n\n---\n\n### price_lte: number\n\nMaximum price.\nIf not specified, send `0`.\n\n---\n\n### price_gte: number\n\nMinimum price.\nIf not specified, send `0`.\n\n---\n\n### price: number\n\nExact price match.\nIf not specified, send `0`.\n\n---\n\n## Input Normalization\n\n- If customer asks about panel sizes (width/height) → MUST set `unit_name=Section`\n- If customer asks about stands or clamps → set `unit_name` accordingly and omit `height_ft` / `width_ft`\n\n---\n\n## Hard Guards (Pre-Call Validation)\n\n- `width_ft` allowed only when `unit_name=Section`\n- `height_ft` allowed only when `unit_name=Section`\n- If customer asks for stand width/height → clarify (stands don't have panel size)\n\n---\n\n## Response Handling\n\n- exact → give price\n- full → list options\n- guided/narrow → ask about `suggested_filter`\n- none → no matches\n",
+        "workflowId": {
+          "__rl": true,
+          "value": "bUblauWrchdcdH30",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/bUblauWrchdcdH30",
+          "cachedResultName": "FDS: MCP Lookup Tool - Temporary Fence"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "width_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('width_ft', `Panel width in feet (Sections only). If the user does not specify this, set to \\`0\\`.\n`, 'number') }}",
+            "height_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_ft', `Panel height in feet (Sections only). If the user does not specify this, set to \\`0\\`.\n`, 'number') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Maximum price filter. If the user does not specify this, send \\`0\\`.\n`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `Exact price match. If the user does not specify this, send \\`0\\`.\n`, 'number') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Minimum price filter. If the user does not specify this, send \\`0\\`.\n`, 'number') }}",
+            "unit_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('unit_name', `Product type (Section, Stand, Clamp, Hardware). If the user does not specify this, send an empty string \\`\"\"\\` instead of null.\n`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "width_ft",
+              "displayName": "width_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "height_ft",
+              "displayName": "height_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "a79fb8b7-9be8-4636-b142-4512583aea23",
+      "name": "lookup_temporary_fence"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "path": "9b9a4706-ba5d-4f51-81e3-28432737d6df"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        -112
+      ],
+      "id": "892362a9-7988-432d-ab5e-f7b38517b1e6",
+      "name": "MCP Pricing",
+      "webhookId": "9b9a4706-ba5d-4f51-81e3-28432737d6df",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bIzbPZmh9ISTgPO6",
+          "name": "FDS-MCP-HEADER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Look up \"Chain Link Fence\" products in the pricing database.\n\nThis tool handles Mesh products only.\n\n## Parameters (ALL OPTIONAL)\n\nunit_name: is always \"Mesh\"\n\ncolor: string\n  Values: Black/Green, Galv.\n  If not specified, send \"\".\n\nheight_ft: number\n  Values: 3, 3.5, 4, 5, 6, 7, 8, 10, 12.\n  If not specified, send 0.\n\nheight_in: number\n  Alternative to height_ft.\n  Values: 36, 42, 48, 60, 72, 84, 96, 120, 144.\n  If not specified, send 0.\n\nmesh_type: string\n  Values: 2 x 9, 2 x 6, 1-1/4 x 9, Extruded 2 x 8.\n  DEFAULT: 2 x 9 — do NOT ask customer about mesh type.\n  Only use other values if customer explicitly specifies.\n  If not specified, send \"\".\n\n## Input Normalization\n\nMap customer words before calling:\n- galv, galvanized, silver → color=Galv\n- green or black → color=Black/Green\n- 42 inches, forty-two → height_in=42 (NOT height_ft=4)\n- standard mesh, regular → mesh_type=2 x 9\n- small mesh, privacy → mesh_type=2 x 6\n\n## Response Handling\n\nmode:\n- exact (1 result) → give price\n- full (2-5) → list options\n- guided/narrow → ask about suggested_filter\n- none → no matches\n\nMesh is priced per ft.",
+        "workflowId": {
+          "__rl": true,
+          "value": "ZdkI1Uv3tMxwbpjk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ZdkI1Uv3tMxwbpjk",
+          "cachedResultName": "FDS: MCP Lookup Tool - Chain Link Fence"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('color', `Fence color (e.g., Black, Green, Galvanized). If the user does not specify this, send an empty string \"\".`, 'string') }}",
+            "height_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_ft', `Fence height in feet (for mesh products). If the user does not specify this, send 0`, 'number') }}",
+            "height_in": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('height_in', `Fence height in inches (alternative to height_ft). If the user does not specify this, send 0`, 'number') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Maximum acceptable price filter. If the user does not specify this, send 0`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `Exact price filter. If the user does not specify this, send 0`, 'number') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Minimum acceptable price filter. If the user does not specify this, send 0`, 'number') }}",
+            "mesh_type": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('mesh_type', `Mesh opening size and style (mesh products only).\n\nIf the customer explicitly specifies a mesh type, send that value (e.g., 2 x 6, 1-1/4 x 9, Extruded 2 x 8).\n\nIf the customer does not specify, send the default: \"2 x 9\" (do not send empty).\n\nSend an empty string \"\" only when you want to return options across all mesh types OR (unfiltered/browse mode).`, 'string') }}",
+            "unit_name": "Mesh",
+            "pipe_diameter_label": "={{ \"\" }}",
+            "material_grade": "={{ \"\" }}",
+            "end_type": "={{ \"\" }}",
+            "wall_thickness": 0,
+            "length_ft": 0
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "color",
+              "displayName": "color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "height_ft",
+              "displayName": "height_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "height_in",
+              "displayName": "height_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "length_ft",
+              "displayName": "length_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "material_grade",
+              "displayName": "material_grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "pipe_diameter_label",
+              "displayName": "pipe_diameter_label",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "end_type",
+              "displayName": "end_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "wall_thickness",
+              "displayName": "wall_thickness",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "mesh_type",
+              "displayName": "mesh_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        272
+      ],
+      "id": "9e20a09a-df85-4a0d-9cc1-780aab6de4d2",
+      "name": "lookup_chain_link_fence_mesh"
+    },
+    {
+      "parameters": {
+        "description": "Look up \"Chain Link Fence\" products in the pricing database.\n\nThis tool handles Pipe products only.\n\n## Parameters (ALL OPTIONAL)\n\ncolor: string\n  Values: Black, Galv.\n  If not specified, send \"\".\n\npipe_diameter_label: string\n  Values: 1-3/8\", 1-5/8\", 2\", 2-1/2\", 3\", 4\".\n  If not specified, send \"\" (empty).\n\nlength_ft: number\n  Values: 5-10, 21, 24.\n  If not specified, send 0.\n\nwall_thickness: number\n  Values: 0.065, 0.085, 0.090, 0.110, 0.120.\n  If not specified, send 0.\n\nmaterial_grade: string\n  Values: Resi, SS20, SS40.\n  If not specified, send \"\".\n\nend_type: string\n  Values: SE (swaged end) or empty.\n  If not specified, send \"\".\n\n## Input Normalization\n\nMap customer words before calling:\n- galv, galvanized, silver → color=Galv\n- black → color=Black\n- green → color=Black (green pipes do not exist)\n\n- one and three eighths, 1-3/8, 1 3/8 → pipe_diameter_label=1-3/8\"\n- one five eighths, 1-5/8, 1 5/8 → pipe_diameter_label=1-5/8\"\n- two inch, 2 inch → pipe_diameter_label=2\"\n- two and a half, 2-1/2, 2 1/2 → pipe_diameter_label=2-1/2\"\n- three inch, 3 inch → pipe_diameter_label=3\"\n- four inch, 4 inch → pipe_diameter_label=4\"\n\n- residential, resi → material_grade=Resi\n- light commercial, SS20 → material_grade=SS20\n- heavy commercial, SS40 → material_grade=SS40\n\n## Response Handling\n\nmode:\n- exact (1 result) → give price\n- full (2-5) → list options\n- guided/narrow → ask about suggested_filter\n- none → no matches\n\nPipe is priced per piece (pcs).",
+        "workflowId": {
+          "__rl": true,
+          "value": "ZdkI1Uv3tMxwbpjk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ZdkI1Uv3tMxwbpjk",
+          "cachedResultName": "FDS: MCP Lookup Tool - Chain Link Fence"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "color": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('color', `Fence color (e.g., Black, Green, Galvanized). If the user does not specify this, send an empty string \"\".`, 'string') }}",
+            "length_ft": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('length_ft', `Pipe length in feet (pipe products only). If the user does not specify this, send 0`, 'number') }}",
+            "wall_thickness": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('wall_thickness', `Pipe wall thickness specification (pipe products only). If the user does not specify this, send 0`, 'number') }}",
+            "price_lte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_lte', `Maximum acceptable price filter. If the user does not specify this, send 0 (zero)`, 'number') }}",
+            "price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price', `Exact price filter. If the user does not specify this, send 0 (zero)`, 'number') }}",
+            "price_gte": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('price_gte', `Minimum acceptable price filter. If the user does not specify this, send 0 (zero)`, 'number') }}",
+            "material_grade": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('material_grade', `Pipe grade. Values: Resi (residential), SS20 (light commercial), SS40 (heavy commercial). If not specified, send \"\".`, 'string') }}",
+            "end_type": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('end_type', `Pipe end type. Values: SE (swaged end) or empty for plain. If not specified, send \"\".`, 'string') }}",
+            "pipe_diameter_label": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('pipe_diameter_label', `Pipe diameter as label. Values: 1-3/8\", 1-5/8\", 2\", 2-1/2\", 3\", 4\". If not specified, send \"\".`, 'string') }}",
+            "unit_name": "Pipe",
+            "height_ft": 0,
+            "height_in": 0,
+            "mesh_type": "={{ \"\" }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "unit_name",
+              "displayName": "unit_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "color",
+              "displayName": "color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "height_ft",
+              "displayName": "height_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "height_in",
+              "displayName": "height_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "length_ft",
+              "displayName": "length_ft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price_lte",
+              "displayName": "price_lte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "price_gte",
+              "displayName": "price_gte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "material_grade",
+              "displayName": "material_grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "pipe_diameter_label",
+              "displayName": "pipe_diameter_label",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "end_type",
+              "displayName": "end_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "wall_thickness",
+              "displayName": "wall_thickness",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "mesh_type",
+              "displayName": "mesh_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        176
+      ],
+      "id": "05cfdf77-c980-4130-9d44-0fe7d622c5b7",
+      "name": "lookup_chain_link_fence_pipe"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "lookup_aluminum_fence": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_vinyl_fence": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_vinyl_railing": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_composite_decking": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_temporary_fence": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_chain_link_fence_mesh": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_chain_link_fence_pipe": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Pricing",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "f4830ba2-7fe7-48a4-8706-82efe5c97127",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8a06cf7ecb558d0b7779cf08af35e39db0e58d7f6882daa3e960ae524cea9c3"
+  },
+  "id": "NspuYOFkO7vuVSVdQdWP6",
+  "tags": [
+    {
+      "updatedAt": "2026-02-02T07:10:47.391Z",
+      "createdAt": "2026-02-02T07:10:47.391Z",
+      "id": "qhaoY6858ZgxSHts",
+      "name": "FDS"
+    }
+  ]
+}

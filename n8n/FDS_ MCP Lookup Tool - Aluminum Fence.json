@@ -1,0 +1,357 @@
+{
+  "name": "FDS: MCP Lookup Tool - Aluminum Fence",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "style"
+            },
+            {
+              "name": "height_in",
+              "type": "number"
+            },
+            {
+              "name": "width_in",
+              "type": "any"
+            },
+            {
+              "name": "price_lte",
+              "type": "number"
+            },
+            {
+              "name": "price_gte",
+              "type": "number"
+            },
+            {
+              "name": "unit_name"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1072,
+        -16
+      ],
+      "id": "4b5f62f0-edf4-4a81-8250-a75f87bdb00c",
+      "name": "When Executed from MCP Trigger Call",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.records || [];\n\n  // --- Helpers ---\n  function bufferToBool(value) {\n    if (value && typeof value === 'object' && value.type === 'Buffer' && Array.isArray(value.data) && value.data.length > 0) {\n      const char = String.fromCharCode(value.data[0]);\n      const c = char.toUpperCase();\n      if (['T', 'Y', '1'].includes(c)) return true;\n      if (['F', 'N', '0'].includes(c)) return false;\n    }\n    if (typeof value === 'boolean') return value;\n    if (typeof value === 'number') return value !== 0;\n    if (typeof value === 'string') {\n      const s = value.trim().toLowerCase();\n      if (['true', 't', 'yes', 'y', '1'].includes(s)) return true;\n      if (['false', 'f', 'no', 'n', '0'].includes(s)) return false;\n    }\n    return Boolean(value);\n  }\n\n  function normalizeProduct(fields) {\n    return {\n      sku: fields.sku,\n      name: fields.name,\n      unit_name: fields.unit_name,\n      price: fields.price,\n      style: fields.style,\n      height_in: fields.height_in,\n      width_in: fields.width_in,\n      rail_type: fields.rail_type,\n      bottom_type: fields.bottom_type,\n      post_thickness: fields.post_thickness,\n      box_qty: fields.box_qty,\n      note: fields.note,\n    };\n  }\n\n  // --- Normalize all products ---\n  const products = data.map(r => {\n    const fields = r.fields || r;\n    return normalizeProduct(fields);\n  });\n\n  const totalCount = products.length;\n\n  // --- Determine mode ---\n  let mode;\n  if (totalCount === 0) mode = 'none';\n  else if (totalCount === 1) mode = 'exact';\n  else if (totalCount <= 5) mode = 'full';\n  else if (totalCount <= 20) mode = 'guided';\n  else mode = 'narrow';\n\n  // --- Compute facets (only if more than 5 results) ---\n  const FACET_FIELDS = ['unit_name', 'style', 'height_in', 'width_in', 'rail_type', 'bottom_type', 'post_thickness'];\n\n  let facets = null;\n  let suggested_filter = null;\n\n  if (totalCount > 5) {\n    facets = {};\n\n    for (const field of FACET_FIELDS) {\n      const counts = {};\n      for (const p of products) {\n        const val = p[field];\n        if (val !== null && val !== undefined && val !== '') {\n          counts[val] = (counts[val] || 0) + 1;\n        }\n      }\n\n      const uniqueValues = Object.keys(counts);\n      if (uniqueValues.length > 1) {  // Only include if multiple options\n        facets[field] = {\n          values: uniqueValues,\n          counts: uniqueValues.map(v => counts[v])\n        };\n      }\n    }\n\n    // Find most discriminating field (closest to 50/50 split)\n    let bestField = null;\n    let bestScore = 0;\n\n    for (const [field, data] of Object.entries(facets)) {\n      const maxCount = Math.max(...data.counts);\n      const score = 1 - (maxCount / totalCount);  // Higher = more even distribution\n      if (score > bestScore && data.values.length >= 2) {\n        bestScore = score;\n        bestField = field;\n      }\n    }\n\n    suggested_filter = bestField;\n  }\n\n  // --- Build response ---\n  const response = {\n    mode,\n    total_count: totalCount,\n    products: products.slice(0, 5),  // Top 5 only for LLM\n  };\n\n  if (facets && Object.keys(facets).length > 0) {\n    response.facets = facets;\n    response.suggested_filter = suggested_filter;\n  }\n\n  if (mode === 'none') {\n    response.message = \"No products found matching your criteria.\";\n  }\n\n  return [{ json: response }];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "5418e616-c9b7-4e3a-87d2-5ccab7dea7d3",
+      "name": "Normalize Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('When Executed from MCP Trigger Call').all();\n\nfunction notEmpty(value) {\n  if (value === undefined || value === null) return false;\n  if (typeof value === 'string' && value.trim() === '') return false;\n  return true;\n}\n\nconst TABLE_NAME = 'Products_summary_active_description_family_code_name_price_sku_unit_code';\n\nconst PRODUCT_COLUMNS = [\n  'sku','family_code','unit_name','name','price','box_qty','post_thickness','true_gate_width_in',\n  'style','bottom_type','width_in','vendor_sku','height_in','note','rail_type'\n].join(', ');\n\nconst FACET_FIELDS = ['unit_name','style','height_in','width_in','rail_type','bottom_type','post_thickness'];\n\nreturn items.map(item => {\n  const q = item.json.query || item.json || {};\n  const where = [];\n  const args = [];\n\n  where.push('family_code = ?');\n  args.push(2);\n\n  if (notEmpty(q.unit_name)) { where.push('unit_name = ?'); args.push(q.unit_name); }\n  if (notEmpty(q.style)) { where.push('style = ?'); args.push(q.style); }\n  if (notEmpty(q.height_in) && Number(q.height_in) !== 0) { where.push('height_in = ?'); args.push(Number(q.height_in)); }\n  if (notEmpty(q.width_in) && Number(q.width_in) !== 0) { where.push('width_in = ?'); args.push(Number(q.width_in)); }\n\n  if (notEmpty(q.price_gte) && Number(q.price_gte) !== 0) { where.push('price >= ?'); args.push(Number(q.price_gte)); }\n  if (notEmpty(q.price_lte) && Number(q.price_lte) !== 0) { where.push('price <= ?'); args.push(Number(q.price_lte)); }\n\n  const active = typeof q.active === 'boolean' ? q.active : true;\n  where.push('active = ?');\n  args.push(active);\n\n  const whereClause = ' WHERE ' + where.join(' AND ');\n\n  const productsSql =\n    `SELECT ${PRODUCT_COLUMNS}, ` +\n    `(SELECT COUNT(*) FROM ${TABLE_NAME}${whereClause}) AS total_count ` +\n    `FROM ${TABLE_NAME}${whereClause} ` +\n    `ORDER BY price DESC, unit_name, style, height_in, width_in ` +\n    `LIMIT 5`;\n\n  const facetsSql = FACET_FIELDS.map(field =>\n    `SELECT '${field}' AS field, ${field} AS value, COUNT(*) AS cnt ` +\n    `FROM ${TABLE_NAME}${whereClause} ` +\n    `AND ${field} IS NOT NULL AND ${field} != '' ` +\n    `GROUP BY ${field}`\n  ).join(' UNION ALL ');\n\n  const facetsArgs = [];\n  for (let i = 0; i < FACET_FIELDS.length; i++) facetsArgs.push(...args);\n\n  return {\n    json: {\n      ...item.json,\n      productsSql,\n      productsArgs: [...args, ...args], // duplicated because productsSql uses where twice\n      facetsSql,\n      facetsArgs,\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        -16
+      ],
+      "id": "045eb114-2bbb-4b4d-8523-f66c62e719a7",
+      "name": "Build SQL",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Normalize & Prepare"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://grist:8484/api/docs/kHgFzJesrzaJ/sql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sql",
+              "value": "WITH filtered AS (SELECT sku, family_code, unit_name, name, price, box_qty, post_thickness, true_gate_width_in, style, bottom_type, width_in, vendor_sku, height_in, note, rail_type FROM Products_summary_active_description_family_code_name_price_sku_unit_code WHERE family_code = 2 AND style = \"Concord\" AND active = true AND height_in = 48) SELECT *, (SELECT COUNT(*) FROM filtered) AS total_count FROM filtered ORDER BY price DESC, unit_name, style, height_in, width_in LIMIT 5"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        80,
+        272
+      ],
+      "id": "0641c1cf-92a6-43da-b815-8335edf0dbf2",
+      "name": "Query Grist1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "yyZQBn8GGgMo6tUu",
+          "name": "Bearer Auth - Grist"
+        },
+        "httpHeaderAuth": {
+          "id": "iSnE9OJyUTsjisd6",
+          "name": "Header Auth - Grist Bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://grist:8484/api/docs/{{$('Get row(s)').item.json.document_id}}/sql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \n    sql: $json.productsSql,\n    args: $json.productsArgs\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -384,
+        -16
+      ],
+      "id": "d986b721-679a-439b-84f5-39a2eeb22f0c",
+      "name": "Products Query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "yyZQBn8GGgMo6tUu",
+          "name": "Bearer Auth - Grist"
+        },
+        "httpHeaderAuth": {
+          "id": "iSnE9OJyUTsjisd6",
+          "name": "Header Auth - Grist Bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://grist:8484/api/docs/{{$('Get row(s)').item.json.document_id}}/sql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \n    sql: $('Build SQL').item.json.facetsSql,\n    args: $('Build SQL').item.json.facetsArgs\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        16,
+        -176
+      ],
+      "id": "7785df58-b93c-422a-9e0c-f3eaefcca233",
+      "name": "Facets Query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "yyZQBn8GGgMo6tUu",
+          "name": "Bearer Auth - Grist"
+        },
+        "httpHeaderAuth": {
+          "id": "iSnE9OJyUTsjisd6",
+          "name": "Header Auth - Grist Bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c2dac826-4911-4f2c-bf0f-8d66034541f3",
+              "leftValue": "={{   Array.isArray($json.records) &&   $json.records.length > 0 &&   $json.records[0].total_count !== undefined &&   Number($json.records[0].total_count) > $json.records.length }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        -16
+      ],
+      "id": "5e048d61-f95f-41ca-b76a-dfc04a585b4f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "CgbXuTY7ln1HR8Uw",
+          "mode": "list",
+          "cachedResultName": "grist",
+          "cachedResultUrl": "/projects/HE5b9C48Ee0HfgOx/datatables/CgbXuTY7ln1HR8Uw"
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -832,
+        -16
+      ],
+      "id": "c7d78aa2-4271-45fd-a93f-a739e0d08436",
+      "name": "Get row(s)"
+    }
+  ],
+  "pinData": {
+    "When Executed from MCP Trigger Call": [
+      {
+        "json": {
+          "style": "Concord",
+          "height_in": null,
+          "width_in": null,
+          "price_lte": null,
+          "price_gte": null,
+          "unit_name": null
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed from MCP Trigger Call": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Response": {
+      "main": [
+        []
+      ]
+    },
+    "Build SQL": {
+      "main": [
+        [
+          {
+            "node": "Products Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Products Query": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Facets Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facets Query": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Build SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "078f1dd0-b0c2-46a9-8d48-9876b323ab72",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8a06cf7ecb558d0b7779cf08af35e39db0e58d7f6882daa3e960ae524cea9c3"
+  },
+  "id": "rHa21jd57smRwcxHqBNWO",
+  "tags": [
+    {
+      "updatedAt": "2026-02-02T07:10:47.391Z",
+      "createdAt": "2026-02-02T07:10:47.391Z",
+      "id": "qhaoY6858ZgxSHts",
+      "name": "FDS"
+    }
+  ]
+}
