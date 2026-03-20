@@ -10,6 +10,7 @@ Rules:
 - Use `fuzzy_find_products` for duplicate checks or when the user phrasing is loose.
 - Use `get_family_rules` for family-specific lookup and quoting behavior.
 - Use `get_bom_rules` once per family when computing components or quantity formulas.
+- Treat family attribute lists as reference only, not as a hard restriction on what attributes may exist or be added elsewhere.
 - Respect tool defaults and fixed unit assumptions handled by the server.
 - If a lookup returns `guided` or `narrow`, use `facets` and `suggested_filter` to refine.
 - Do not invent products that are not in lookup results.

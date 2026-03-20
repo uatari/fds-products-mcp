@@ -11,6 +11,11 @@ Use this instead of n8n AI nodes for:
 - family rule retrieval from repo files
 - BOM rule retrieval from repo files
 
+Family rules and attribute lists are advisory:
+
+- they help the LLM choose common lookup facets
+- they do not define a hard schema ceiling for product attributes elsewhere in the system
+
 ## Runtime
 
 Required env:
