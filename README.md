@@ -2,7 +2,7 @@
 
 Deterministic MCP server for product lookup, family rules, and BOM-rule retrieval.
 
-Use this instead of n8n AI nodes for:
+Use this MCP for:
 
 - product-adder duplicate checks
 - on-the-fly quote lookups
@@ -20,14 +20,22 @@ Family rules and attribute lists are advisory:
 
 Required env:
 
-- `N8N_GRIST_RELAY_URL`
-- `N8N_GRIST_RELAY_API_KEY`
+- Preferred:
+  - `GRIST_API_BASE_URL`
+  - `GRIST_DOC_ID`
+  - `GRIST_API_KEY` if the document is not public to the MCP container
+- Legacy fallback:
+  - `GRIST_RELAY_URL`
+  - `GRIST_RELAY_API_KEY`
 
 Optional:
 
+- `GRIST_SQL_TIMEOUT_MS` default `1000`
 - `BOM_ROOT_DIR` default `./boms`
 - `FAMILY_RULES_DIR` default `./family-rules`
 - `REQUEST_TIMEOUT_MS` default `60000`
+
+The server prefers direct Grist SQL via `POST /api/docs/{docId}/sql`. It falls back to the relay only when direct Grist settings are not configured.
 
 ## Install
 
@@ -66,7 +74,7 @@ Family lookup tools return:
 - `facets` when result count is above 5
 - `suggested_filter` when one facet best narrows the set
 
-This mirrors the current n8n resolver behavior but keeps it deterministic and reusable.
+This keeps lookup behavior deterministic and reusable.
 
 ## Fuzzy Matching
 

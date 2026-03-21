@@ -4,7 +4,7 @@ Use this MCP for product lookup, family rule retrieval, and BOM rule retrieval.
 
 Rules:
 
-- Do not invent SQL or bypass the MCP with direct relay calls.
+- Do not invent SQL or bypass the MCP with direct backend calls.
 - Use the family-specific lookup tool that matches the product family.
 - Use `lookup_product_by_sku` when SKU is already known.
 - Use `fuzzy_find_products` for duplicate checks or when the user phrasing is loose.

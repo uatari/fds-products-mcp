@@ -30,11 +30,20 @@ function loadEnvFile() {
 loadEnvFile();
 
 const packageJson = readJson(path.resolve(projectRoot, "package.json"));
+const gristApiBaseUrl = (process.env.GRIST_API_BASE_URL || "http://grist:8484").replace(/\/$/, "");
+const gristDocId = process.env.GRIST_DOC_ID || "";
+const gristApiKey = process.env.GRIST_API_KEY || "";
+const relayUrl = (process.env.GRIST_RELAY_URL || process.env.N8N_GRIST_RELAY_URL || "").replace(/\/$/, "");
+const relayApiKey = process.env.GRIST_RELAY_API_KEY || process.env.N8N_GRIST_RELAY_API_KEY || "";
 const config = {
   ...readJson(path.resolve(projectRoot, "config/sku-resolver.config.json")),
-  relayUrl: (process.env.N8N_GRIST_RELAY_URL || "").replace(/\/$/, ""),
-  relayApiKey: process.env.N8N_GRIST_RELAY_API_KEY || "",
+  gristApiBaseUrl,
+  gristDocId,
+  gristApiKey,
+  relayUrl,
+  relayApiKey,
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS || 60000),
+  gristSqlTimeoutMs: Number(process.env.GRIST_SQL_TIMEOUT_MS || 1000),
   bomRootDir: path.isAbsolute(process.env.BOM_ROOT_DIR || "")
     ? process.env.BOM_ROOT_DIR
     : path.resolve(projectRoot, process.env.BOM_ROOT_DIR || "./boms"),
@@ -198,15 +207,28 @@ function scoreCandidate(query, candidate) {
   return { score, reasons };
 }
 
+function hasDirectGristConfig() {
+  return Boolean(config.gristApiBaseUrl && config.gristDocId);
+}
+
+function hasRelayConfig() {
+  return Boolean(config.relayUrl && config.relayApiKey);
+}
+
+function runtimeBackendLabel() {
+  if (hasDirectGristConfig()) return `grist ${config.gristApiBaseUrl}/api/docs/${config.gristDocId}/sql`;
+  if (hasRelayConfig()) return `relay ${config.relayUrl}`;
+  return "unconfigured";
+}
+
 function failIfMissingRuntimeConfig() {
   const missing = [];
-  if (!config.relayUrl) missing.push("N8N_GRIST_RELAY_URL");
-  if (!config.relayApiKey) missing.push("N8N_GRIST_RELAY_API_KEY");
+  if (hasDirectGristConfig() || hasRelayConfig()) return;
+  missing.push("GRIST_DOC_ID + optional GRIST_API_KEY (preferred)", "or GRIST_RELAY_URL + GRIST_RELAY_API_KEY (legacy)");
   if (missing.length) throw new Error(`Missing required env vars: ${missing.join(", ")}`);
 }
 
 async function relayFetch(payload) {
-  failIfMissingRuntimeConfig();
   const response = await fetch(config.relayUrl, {
     method: "POST",
     headers: {
@@ -224,10 +246,35 @@ async function relayFetch(payload) {
   return envelope.response;
 }
 
+async function gristSqlFetch(sql, args = []) {
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  if (config.gristApiKey) headers.Authorization = `Bearer ${config.gristApiKey}`;
+  const response = await fetch(`${config.gristApiBaseUrl}/api/docs/${encodeURIComponent(config.gristDocId)}/sql`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      sql,
+      args,
+      timeout: Math.max(1, Math.min(Number(config.gristSqlTimeoutMs || 1000), Number(config.requestTimeoutMs || 60000)))
+    }),
+    signal: AbortSignal.timeout(config.requestTimeoutMs)
+  });
+  const text = await response.text();
+  const parsed = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(`Grist SQL request failed (${response.status}): ${text}`);
+  return parsed;
+}
+
 async function runSql(sql, args = []) {
   const compact = String(sql || "").trim().replace(/^\(+/, "").trimStart().toUpperCase();
   if (!(compact.startsWith("SELECT") || compact.startsWith("WITH"))) {
     throw new Error("Only read-only SELECT/WITH SQL is allowed");
+  }
+  failIfMissingRuntimeConfig();
+  if (hasDirectGristConfig()) {
+    return gristSqlFetch(sql, args);
   }
   return relayFetch({ op: "sql_query", sql, args });
 }
@@ -510,7 +557,7 @@ async function main() {
   failIfMissingRuntimeConfig();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write(`${config.serverName || packageJson.name} MCP ${packageJson.version} running on stdio via relay ${config.relayUrl}\n`);
+  process.stderr.write(`${config.serverName || packageJson.name} MCP ${packageJson.version} running on stdio via ${runtimeBackendLabel()}\n`);
 }
 
 main().catch((error) => {

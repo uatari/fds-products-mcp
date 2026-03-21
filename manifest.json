@@ -8,11 +8,14 @@
     "transport": "stdio"
   },
   "env": {
-    "required": [
-      "N8N_GRIST_RELAY_URL",
-      "N8N_GRIST_RELAY_API_KEY"
-    ],
+    "required": [],
     "optional": [
+      "GRIST_API_BASE_URL",
+      "GRIST_DOC_ID",
+      "GRIST_API_KEY",
+      "GRIST_SQL_TIMEOUT_MS",
+      "GRIST_RELAY_URL",
+      "GRIST_RELAY_API_KEY",
       "BOM_ROOT_DIR",
       "FAMILY_RULES_DIR",
       "REQUEST_TIMEOUT_MS"
