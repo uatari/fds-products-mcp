@@ -52,6 +52,7 @@ const config = {
     ? process.env.FAMILY_RULES_DIR
     : path.resolve(projectRoot, process.env.FAMILY_RULES_DIR || "./family-rules")
 };
+const catalogSchema = readJson(path.resolve(projectRoot, "config/catalog-schema.config.json"));
 
 function quoteIdentifier(identifier) {
   if (!/^[\w .-]+$/.test(identifier)) throw new Error(`Unsafe identifier: ${identifier}`);
@@ -71,141 +72,302 @@ function normalizeLimit(limit) {
   return Math.max(1, Math.min(Number(limit || max), max));
 }
 
-function normalizeSearchText(value) {
+const toolConfigByName = new Map((config.familyTools || []).map((toolConfig) => [toolConfig.toolName, toolConfig]));
+const familySchemaByName = new Map((catalogSchema.families || []).map((family) => [family.name, family]));
+const familyNames = (catalogSchema.families || []).map((family) => family.name);
+
+function normalizeResolverText(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/[’']/g, "'")
     .replace(/["“”]/g, '"')
-    .replace(/\ball white\b/g, "white")
-    .replace(/\bsections?\b/g, "panel")
-    .replace(/\bpanels?\b/g, "panel")
-    .replace(/\bgates?\b/g, "gate")
-    .replace(/\bposts?\b/g, "post")
-    .replace(/\bprivacy fence\b/g, "privacy")
-    .replace(/[^a-z0-9"' ]+/g, " ")
+    .replace(/\bfeet\b/g, "ft")
+    .replace(/\bfoot\b/g, "ft")
+    .replace(/\binches\b/g, "in")
+    .replace(/\binch\b/g, "in")
+    .replace(/[^a-z0-9"'/. -]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function searchTokens(value) {
-  const stop = new Set(["x", "for", "with", "the", "and", "all", "ft", "in"]);
-  return Array.from(new Set(
-    normalizeSearchText(value)
-      .split(" ")
-      .map((token) => token.trim())
-      .filter((token) => token && !stop.has(token))
-  ));
+function aliasEntries(aliases = []) {
+  return Array.from(new Set((aliases || []).map((alias) => normalizeResolverText(alias)).filter(Boolean)))
+    .sort((a, b) => b.length - a.length);
 }
 
-function normalizeUnitHint(value) {
-  const normalized = normalizeSearchText(value);
-  const map = {
-    panel: "panel",
-    section: "panel",
-    "section kit": "section kit",
-    gate: "gate",
-    post: "post",
-    board: "board",
-    mesh: "mesh",
-    pipe: "pipe",
-    hardware: "hardware",
-    stand: "stand",
-    clamp: "clamp",
-    "fascia board": "fascia board"
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function textHasAlias(text, alias) {
+  if (!alias) return false;
+  return new RegExp(`(^|[^a-z0-9])${escapeRegex(alias)}([^a-z0-9]|$)`, "i").test(text);
+}
+
+function findAliasMatch(text, aliases = []) {
+  const normalized = normalizeResolverText(text);
+  for (const alias of aliasEntries(aliases)) {
+    if (textHasAlias(normalized, alias)) return alias;
+  }
+  return null;
+}
+
+function getToolConfig(toolName) {
+  const toolConfig = toolConfigByName.get(toolName);
+  if (!toolConfig) throw new Error(`Unknown lookup tool config: ${toolName}`);
+  return toolConfig;
+}
+
+function getFamilySchema(familyName) {
+  const family = familySchemaByName.get(familyName);
+  if (!family) throw new Error(`Unsupported family_name: ${familyName}`);
+  return family;
+}
+
+function getSubtypeSchema(family, subtypeName) {
+  const subtype = (family.subtypes || []).find((candidate) => candidate.name === subtypeName);
+  if (!subtype) throw new Error(`Unsupported subtype_name: ${subtypeName} for family ${family.name}`);
+  return subtype;
+}
+
+function resolveFamilyFromText(text) {
+  const normalized = normalizeResolverText(text);
+  const matches = [];
+  for (const family of catalogSchema.families || []) {
+    const match = findAliasMatch(normalized, [family.name, ...(family.aliases || [])]);
+    if (match) matches.push({ family, alias: match });
+  }
+  if (matches.length !== 1) return null;
+  return matches[0].family;
+}
+
+function resolveSubtypeFromText(family, text) {
+  const normalized = normalizeResolverText(text);
+  const matches = [];
+  for (const subtype of family.subtypes || []) {
+    const match = findAliasMatch(normalized, [subtype.name, ...(subtype.aliases || [])]);
+    if (match) matches.push({ subtype, alias: match });
+  }
+  if (matches.length !== 1) return null;
+  return matches[0].subtype;
+}
+
+function canonicalizeStringAlias(value, aliasMap = {}) {
+  const normalized = normalizeResolverText(value);
+  if (!normalized) return null;
+  for (const [alias, canonical] of Object.entries(aliasMap || {})) {
+    if (normalizeResolverText(alias) === normalized) return canonical;
+  }
+  return typeof value === "string" ? value.trim() : String(value);
+}
+
+function extractNumberCandidates(text) {
+  const normalized = normalizeResolverText(text);
+  const feetPair = normalized.match(/(\d+(?:\.\d+)?)\s*(?:ft|'|f)\s*x\s*(\d+(?:\.\d+)?)\s*(?:ft|'|f)?/i);
+  const inchPair = normalized.match(/(\d+(?:\.\d+)?)\s*(?:in|")\s*x\s*(\d+(?:\.\d+)?)\s*(?:in|")?/i);
+  const lengthFeet = normalized.match(/(\d+(?:\.\d+)?)\s*(?:ft|'|f)\b/i);
+  const lengthInches = normalized.match(/(\d+(?:\.\d+)?)\s*(?:in|")\b/i);
+  return {
+    feetPair: feetPair ? [Number(feetPair[1]), Number(feetPair[2])] : null,
+    inchPair: inchPair ? [Number(inchPair[1]), Number(inchPair[2])] : null,
+    firstFeet: lengthFeet ? Number(lengthFeet[1]) : null,
+    firstInches: lengthInches ? Number(lengthInches[1]) : null
   };
-  return map[normalized] || normalized;
 }
 
-function inferProductClass(text) {
-  const normalized = normalizeSearchText(text);
-  if (/\bpost\b/.test(normalized)) return "post";
-  if (/\bgate\b/.test(normalized)) return "gate";
-  if (/\bpanel\b|\bsection\b|\bfence\b/.test(normalized)) return "panel";
-  if (/\bboard\b|\bfascia\b/.test(normalized)) return "board";
-  if (/\bmesh\b/.test(normalized)) return "mesh";
-  if (/\bpipe\b|\brail\b/.test(normalized)) return "pipe";
-  return "";
-}
+function extractDeterministicFilters(text, family, subtype) {
+  const allowed = new Set(subtype.allowedFilters || []);
+  const filterValues = {};
+  const normalized = normalizeResolverText(text);
+  const numeric = extractNumberCandidates(normalized);
+  const mergedAliases = {
+    ...(catalogSchema.globalFilterAliases || {}),
+    ...(family.filterAliases || {}),
+    ...(subtype.filterAliases || {})
+  };
 
-function extractDimensions(text) {
-  const normalized = String(text || "").replace(/\s+/g, " ");
-  const out = {};
-  const feetPair = normalized.match(/(\d+(?:\.\d+)?)\s*['hH]?\s*x\s*(\d+(?:\.\d+)?)\s*['wW]?/);
-  if (feetPair) {
-    out.height_ft = Number(feetPair[1]);
-    out.width_ft = Number(feetPair[2]);
-  }
-  const inchTriple = normalized.match(/(\d+(?:\.\d+)?)\s*"\s*x\s*(\d+(?:\.\d+)?)\s*"\s*x\s*(\d+(?:\.\d+)?)\s*'/);
-  if (inchTriple) {
-    out.thickness_in = Number(inchTriple[1]);
-    out.width_in = Number(inchTriple[2]);
-    out.length_ft = Number(inchTriple[3]);
-  }
-  return out;
-}
-
-function scoreCandidate(query, candidate) {
-  const queryTokens = searchTokens(query.query);
-  const queryDims = extractDimensions(query.query);
-  const candidateText = `${candidate.name || ""} ${candidate.unit_name || ""} ${candidate.color || ""} ${candidate.design || ""}`;
-  const candidateTokens = new Set(searchTokens(candidateText));
-  const reasons = [];
-  let score = 0;
-
-  for (const token of queryTokens) {
-    if (candidateTokens.has(token)) {
-      score += 1;
-      reasons.push(`token:${token}`);
+  for (const filterName of Object.keys(mergedAliases)) {
+    if (!allowed.has(filterName)) continue;
+    for (const [alias, canonical] of Object.entries(mergedAliases[filterName] || {})) {
+      if (textHasAlias(normalized, normalizeResolverText(alias))) {
+        filterValues[filterName] = canonical;
+        break;
+      }
     }
   }
 
-  if (query.family_name && Number(candidate.family_code) === Number(query.family_code || 0)) {
-    score += 2;
-    reasons.push("family");
+  if (allowed.has("height_ft") && allowed.has("width_ft") && numeric.feetPair) {
+    filterValues.height_ft = numeric.feetPair[0];
+    filterValues.width_ft = numeric.feetPair[1];
+  } else if (allowed.has("length_ft") && numeric.firstFeet != null) {
+    filterValues.length_ft = numeric.firstFeet;
+  } else if (allowed.has("height_ft") && numeric.firstFeet != null && !allowed.has("width_ft")) {
+    filterValues.height_ft = numeric.firstFeet;
   }
 
-  const queryUnit = normalizeUnitHint(query.unit_name || "");
-  const candidateUnit = normalizeUnitHint(candidate.unit_name || "");
-  if (queryUnit && queryUnit === candidateUnit) {
-    score += 2;
-    reasons.push("unit");
-  } else if (queryUnit && candidateUnit.includes(queryUnit)) {
-    score += 1;
-    reasons.push("unit_partial");
+  if (allowed.has("height_in") && allowed.has("width_in") && numeric.inchPair) {
+    filterValues.height_in = numeric.inchPair[0];
+    filterValues.width_in = numeric.inchPair[1];
+  } else if (allowed.has("height_in") && numeric.firstInches != null && !allowed.has("width_in")) {
+    filterValues.height_in = numeric.firstInches;
+  } else if (allowed.has("width_in") && numeric.firstInches != null && !allowed.has("height_in")) {
+    filterValues.width_in = numeric.firstInches;
   }
 
-  const queryClass = inferProductClass(`${query.query} ${query.unit_name || ""}`);
-  const candidateClass = inferProductClass(`${candidate.name || ""} ${candidate.unit_name || ""}`);
-  if (queryClass && candidateClass) {
-    if (queryClass === candidateClass) {
-      score += 3;
-      reasons.push("class");
-    } else {
-      score -= 4;
-    }
-  }
+  return filterValues;
+}
 
-  const numericFields = ["height_ft", "width_ft", "height_in", "length_ft", "width_in"];
-  for (const field of numericFields) {
-    if (queryDims[field] == null) continue;
-    if (candidate[field] == null || candidate[field] === "") {
-      score -= 1;
+function coerceFilterValue(filterConfig, value, aliasMaps = {}) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (filterConfig.type === "number") {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : undefined;
+  }
+  if (filterConfig.type === "boolean") {
+    if (typeof value === "boolean") return value;
+    if (String(value).toLowerCase() === "true") return true;
+    if (String(value).toLowerCase() === "false") return false;
+    return undefined;
+  }
+  if (filterConfig.type === "boolean_string") {
+    const resolved = boolStringToSql(value);
+    return resolved === null ? undefined : resolved;
+  }
+  if (filterConfig.type === "string") {
+    const aliasMap = aliasMaps[filterConfig.column || ""] || aliasMaps[filterConfig.name || ""] || {};
+    return canonicalizeStringAlias(value, aliasMap);
+  }
+  return value;
+}
+
+function validateAndNormalizeFilters(toolConfig, family, subtype, filters = {}) {
+  const allowedFilters = new Set(subtype.allowedFilters || []);
+  const normalizedFilters = { ...(subtype.fixedFilters || {}) };
+  const ignoredFilters = [];
+  const aliasMaps = {
+    ...(catalogSchema.globalFilterAliases || {}),
+    ...(family.filterAliases || {}),
+    ...(subtype.filterAliases || {})
+  };
+
+  for (const [filterName, rawValue] of Object.entries(filters || {})) {
+    if (!allowedFilters.has(filterName)) {
+      ignoredFilters.push(filterName);
       continue;
     }
-    if (Number(candidate[field]) === Number(queryDims[field])) {
-      score += 3;
-      reasons.push(`dim:${field}`);
-    } else {
-      score -= 2;
+    const filterConfig = toolConfig.filters?.[filterName];
+    if (!filterConfig) {
+      ignoredFilters.push(filterName);
+      continue;
+    }
+    const value = coerceFilterValue({ ...filterConfig, name: filterName }, rawValue, aliasMaps);
+    if (value === undefined) continue;
+    normalizedFilters[filterName] = value;
+  }
+
+  return { filters: normalizedFilters, ignored_filters: ignoredFilters };
+}
+
+function applySubtypeDefaultsAndImplications(subtype, filters = {}) {
+  const nextFilters = { ...(filters || {}) };
+  const appliedDefaults = {};
+
+  for (const [filterName, value] of Object.entries(subtype.defaultFilters || {})) {
+    if (nextFilters[filterName] === undefined || nextFilters[filterName] === null || nextFilters[filterName] === "") {
+      nextFilters[filterName] = value;
+      appliedDefaults[filterName] = value;
     }
   }
 
-  if (query.query && normalizeSearchText(candidate.name || "").includes(normalizeSearchText(query.query))) {
-    score += 3;
-    reasons.push("name_contains_query");
+  for (const rule of subtype.impliedFilters || []) {
+    const conditions = rule.when || {};
+    const matches = Object.entries(conditions).every(([filterName, expectedValue]) => nextFilters[filterName] === expectedValue);
+    if (!matches) continue;
+    for (const [filterName, value] of Object.entries(rule.apply || {})) {
+      if (nextFilters[filterName] === undefined || nextFilters[filterName] === null || nextFilters[filterName] === "") {
+        nextFilters[filterName] = value;
+        appliedDefaults[filterName] = value;
+      }
+    }
   }
 
-  return { score, reasons };
+  return { filters: nextFilters, applied_defaults: appliedDefaults };
+}
+
+function resolveCatalogPlan({ query_text = "", family_name, subtype_name, filters = {} } = {}) {
+  const normalizedText = normalizeResolverText(query_text);
+  let family = null;
+  let subtype = null;
+  const resolution = {
+    query_text,
+    family_name: null,
+    subtype_name: null,
+    status: "unresolved",
+    filters: {},
+    fixed_filters: {},
+    applied_defaults: {},
+    ignored_filters: [],
+    errors: []
+  };
+
+  if (family_name) {
+    family = familySchemaByName.get(family_name) || null;
+    if (!family) resolution.errors.push(`Unsupported family_name: ${family_name}`);
+  } else if (normalizedText) {
+    family = resolveFamilyFromText(normalizedText);
+  }
+
+  if (!family) {
+    resolution.status = "needs_family";
+    return resolution;
+  }
+
+  if (subtype_name) {
+    subtype = (family.subtypes || []).find((candidate) => candidate.name === subtype_name) || null;
+    if (!subtype) resolution.errors.push(`Unsupported subtype_name: ${subtype_name} for family ${family.name}`);
+  } else if (normalizedText) {
+    subtype = resolveSubtypeFromText(family, normalizedText);
+  }
+  if (!subtype && family.defaultSubtype) subtype = getSubtypeSchema(family, family.defaultSubtype);
+
+  resolution.family_name = family.name;
+  if (!subtype) {
+    resolution.status = "needs_subtype";
+    return resolution;
+  }
+
+  resolution.subtype_name = subtype.name;
+  resolution.fixed_filters = { ...(subtype.fixedFilters || {}) };
+  const toolConfig = getToolConfig(subtype.lookupToolName || family.lookupToolName);
+  const deterministicFilters = extractDeterministicFilters(normalizedText, family, subtype);
+  const { filters: normalizedFilters, ignored_filters } = validateAndNormalizeFilters(
+    toolConfig,
+    family,
+    subtype,
+    { ...deterministicFilters, ...(filters || {}) }
+  );
+  const { filters: finalFilters, applied_defaults } = applySubtypeDefaultsAndImplications(subtype, normalizedFilters);
+  resolution.filters = finalFilters;
+  resolution.applied_defaults = applied_defaults;
+  resolution.ignored_filters = ignored_filters;
+  resolution.status = resolution.errors.length ? "invalid" : "resolved";
+  return resolution;
+}
+
+function familySummary(family) {
+  return {
+    family_name: family.name,
+    family_code: family.familyCode,
+    aliases: family.aliases || [],
+    default_subtype: family.defaultSubtype || null,
+    subtypes: (family.subtypes || []).map((subtype) => ({
+      subtype_name: subtype.name,
+      aliases: subtype.aliases || [],
+      fixed_filters: subtype.fixedFilters || {},
+      default_filters: subtype.defaultFilters || {},
+      allowed_filters: subtype.allowedFilters || []
+    }))
+  };
 }
 
 function hasDirectGristConfig() {
@@ -415,6 +577,42 @@ async function executeFamilyLookup(toolConfig, query = {}) {
   return response;
 }
 
+async function listFilterOptions(toolConfig, query = {}, facetFields = []) {
+  const fields = (facetFields || []).filter((field) => toolConfig.facetFields.includes(field));
+  if (!fields.length) return {};
+  const { where, args } = buildLookupWhere(toolConfig, query);
+  const whereClause = ` WHERE ${where.join(" AND ")}`;
+  const facetSql = fields.map((field) =>
+    `SELECT '${field}' as field, ${field} as value, COUNT(*) as cnt FROM ${config.pricingTable}${whereClause} AND ${field} IS NOT NULL AND ${field} != '' GROUP BY ${field}`
+  ).join(" UNION ALL ");
+  const facetArgs = [];
+  for (let i = 0; i < fields.length; i += 1) facetArgs.push(...args);
+  const facetRows = asFlatRecords(await runSql(facetSql, facetArgs));
+  const options = {};
+  for (const field of fields) options[field] = [];
+  for (const row of facetRows) {
+    if (!options[row.field]) options[row.field] = [];
+    options[row.field].push({ value: row.value, count: Number(row.cnt || 0) });
+  }
+  for (const field of Object.keys(options)) {
+    options[field].sort((a, b) => String(a.value).localeCompare(String(b.value), undefined, { numeric: true, sensitivity: "base" }));
+  }
+  return options;
+}
+
+async function lookupCatalog(query = {}) {
+  const plan = resolveCatalogPlan(query);
+  if (plan.status !== "resolved") return plan;
+  const family = getFamilySchema(plan.family_name);
+  const subtype = getSubtypeSchema(family, plan.subtype_name);
+  const toolConfig = getToolConfig(subtype.lookupToolName || family.lookupToolName);
+  const result = await executeFamilyLookup(toolConfig, plan.filters);
+  return {
+    plan,
+    ...result
+  };
+}
+
 async function lookupProductBySku(sku) {
   const sql = `
     SELECT *
@@ -424,47 +622,6 @@ async function lookupProductBySku(sku) {
   `;
   const rows = asFlatRecords(await runSql(sql, [sku])).map(normalizeProductRecord);
   return rows[0] || null;
-}
-
-async function fuzzyFindProducts({ query, family_name, unit_name, limit = 10 }) {
-  const familyCode = family_name ? config.bomFamilies?.[family_name]?.familyCode || null : null;
-  const tokens = searchTokens(query).slice(0, 6);
-  const baseWhere = [];
-  const baseArgs = [];
-  if (familyCode) {
-    baseWhere.push("family_code = ?");
-    baseArgs.push(familyCode);
-  }
-  baseWhere.push("active = ?");
-  baseArgs.push(true);
-  const tokenWhere = [...baseWhere];
-  const tokenArgs = [...baseArgs];
-  if (tokens.length) {
-    tokenWhere.push(`(${tokens.map(() => "LOWER(name) LIKE LOWER(?)").join(" OR ")})`);
-    tokenArgs.push(...tokens.map((token) => `%${token}%`));
-  }
-  const baseSelect = `
-    SELECT sku, family_code, name, price, unit_name, color, design, height_ft, width_ft, height_in, width_in, length_ft, vendor_sku, note
-    FROM ${config.pricingTable}
-  `;
-  let rows = asFlatRecords(await runSql(`${baseSelect} WHERE ${tokenWhere.join(" AND ")} LIMIT 200`, tokenArgs)).map(normalizeProductRecord);
-  if (!rows.length) {
-    rows = asFlatRecords(await runSql(`${baseSelect} WHERE ${baseWhere.join(" AND ")} LIMIT 500`, baseArgs)).map(normalizeProductRecord);
-  }
-  const scored = rows
-    .map((row) => {
-      const { score, reasons } = scoreCandidate({ query, family_name, family_code: familyCode, unit_name }, row);
-      return { ...row, score, reasons };
-    })
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || String(a.name || "").localeCompare(String(b.name || "")))
-    .slice(0, Math.max(1, Math.min(Number(limit || 10), 20)));
-  return {
-    query,
-    family_name: family_name || null,
-    unit_name: unit_name || null,
-    candidates: scored
-  };
 }
 
 function readBomRule(familyName) {
@@ -497,66 +654,106 @@ function readFamilyRule(familyName) {
 }
 
 function createServer() {
-const server = new McpServer({
-  name: config.serverName || "fds-sku-resolver",
-  version: packageJson.version || config.serverVersion || "0.1.0"
-});
+  const server = new McpServer({
+    name: config.serverName || "fds-sku-resolver",
+    version: packageJson.version || config.serverVersion || "0.1.0"
+  });
+  const familyNameEnum = z.enum(familyNames);
+  const looseFiltersSchema = z.record(z.union([z.string(), z.number(), z.boolean()])).optional();
 
-server.tool(
-  "lookup_product_by_sku",
-  "Look up one product row in the pricing summary table by exact SKU.",
-  { sku: z.string() },
-  async ({ sku }) => {
-    const record = await lookupProductBySku(sku);
-    return asTextResult({ found: Boolean(record), product: record });
-  }
-);
-
-server.tool(
-  "fuzzy_find_products",
-  "Find likely matching products when the wording differs. Use for duplicate checks and loose customer phrasing.",
-  {
-    query: z.string(),
-    family_name: z.enum(["aluminum-fence", "chainlink-fence", "composite-board", "vinyl-fence", "vinyl-railing", "temporary-fence"]).optional(),
-    unit_name: z.string().optional(),
-    limit: z.number().int().min(1).max(20).optional()
-  },
-  async ({ query, family_name, unit_name, limit }) => asTextResult(await fuzzyFindProducts({ query, family_name, unit_name, limit }))
-);
-
-server.tool(
-  "get_bom_rules",
-  "Return BOM rules text for one allowed family from local repo files.",
-  { family_name: z.enum(["aluminum-fence", "chainlink-fence", "composite-board", "vinyl-fence", "vinyl-railing", "temporary-fence"]) },
-  async ({ family_name }) => asTextResult(readBomRule(family_name))
-);
-
-server.tool(
-  "get_family_rules",
-  "Return family-specific lookup and quoting rules for one allowed family.",
-  { family_name: z.enum(["aluminum-fence", "chainlink-fence", "composite-board", "vinyl-fence", "vinyl-railing", "temporary-fence"]) },
-  async ({ family_name }) => asTextResult(readFamilyRule(family_name))
-);
-
-for (const toolConfig of config.familyTools) {
-  const schemaShape = {};
-  for (const [inputKey, filter] of Object.entries(toolConfig.filters || {})) {
-    if (filter.type === "constant") continue;
-    if (filter.type === "number") schemaShape[inputKey] = z.number().optional();
-    else if (filter.type === "boolean") schemaShape[inputKey] = z.boolean().optional();
-    else if (filter.type === "boolean_string") schemaShape[inputKey] = z.union([z.literal("yes"), z.literal("no"), z.string()]).optional();
-    else schemaShape[inputKey] = z.string().optional();
-  }
   server.tool(
-    toolConfig.toolName,
-    toolConfig.description,
-    schemaShape,
-    async (query) => asTextResult(await executeFamilyLookup(toolConfig, query))
+    "lookup_product_by_sku",
+    "Look up one product row in the pricing summary table by exact SKU.",
+    { sku: z.string() },
+    async ({ sku }) => {
+      const record = await lookupProductBySku(sku);
+      return asTextResult({ found: Boolean(record), product: record });
+    }
   );
-}
-return server;
-} // end createServer()
 
+  server.tool(
+    "list_catalog_families",
+    "List supported catalog families and their deterministic subtype/filter structure.",
+    {},
+    async () => asTextResult({
+      families: (catalogSchema.families || []).map(familySummary)
+    })
+  );
+
+  server.tool(
+    "describe_catalog_family",
+    "Return the subtype structure, aliases, and allowed filters for one catalog family.",
+    { family_name: familyNameEnum },
+    async ({ family_name }) => asTextResult(familySummary(getFamilySchema(family_name)))
+  );
+
+  server.tool(
+    "resolve_catalog_query",
+    "Resolve natural language into a validated search plan: family, subtype, valid filters, and ignored filters.",
+    {
+      query_text: z.string().optional(),
+      family_name: familyNameEnum.optional(),
+      subtype_name: z.string().optional(),
+      filters: looseFiltersSchema
+    },
+    async ({ query_text, family_name, subtype_name, filters }) => asTextResult(
+      resolveCatalogPlan({ query_text, family_name, subtype_name, filters })
+    )
+  );
+
+  server.tool(
+    "get_catalog_options",
+    "Return valid option lists for the filters supported by one resolved family/subtype path.",
+    {
+      family_name: familyNameEnum,
+      subtype_name: z.string().optional(),
+      query_text: z.string().optional(),
+      filters: looseFiltersSchema
+    },
+    async ({ family_name, subtype_name, query_text, filters }) => {
+      const plan = resolveCatalogPlan({ family_name, subtype_name, query_text, filters });
+      if (plan.status !== "resolved") return asTextResult(plan);
+      const family = getFamilySchema(plan.family_name);
+      const subtype = getSubtypeSchema(family, plan.subtype_name);
+      const toolConfig = getToolConfig(subtype.lookupToolName || family.lookupToolName);
+      const options = await listFilterOptions(toolConfig, plan.filters, subtype.allowedFilters || []);
+      return asTextResult({
+        plan,
+        options
+      });
+    }
+  );
+
+  server.tool(
+    "lookup_catalog",
+    "Execute a validated catalog lookup after resolving family, subtype, and allowed filters.",
+    {
+      query_text: z.string().optional(),
+      family_name: familyNameEnum.optional(),
+      subtype_name: z.string().optional(),
+      filters: looseFiltersSchema
+    },
+    async ({ query_text, family_name, subtype_name, filters }) => asTextResult(
+      await lookupCatalog({ query_text, family_name, subtype_name, filters })
+    )
+  );
+
+  server.tool(
+    "get_bom_rules",
+    "Return BOM rules text for one allowed family from local repo files.",
+    { family_name: familyNameEnum },
+    async ({ family_name }) => asTextResult(readBomRule(family_name))
+  );
+
+  server.tool(
+    "get_family_rules",
+    "Return family-specific lookup and quoting rules for one allowed family.",
+    { family_name: familyNameEnum },
+    async ({ family_name }) => asTextResult(readFamilyRule(family_name))
+  );
+
+  return server;
+}
 async function main() {
   failIfMissingRuntimeConfig();
   const port = parseInt(process.env.MCP_PORT || "8000", 10);

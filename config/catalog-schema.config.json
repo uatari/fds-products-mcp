@@ -1,0 +1,184 @@
+{
+  "globalFilterAliases": {
+    "color": {
+      "white": "White",
+      "tan": "Tan",
+      "beige": "Tan",
+      "adobe": "Adobe",
+      "cream": "Adobe",
+      "black": "Black"
+    }
+  },
+  "families": [
+    {
+      "name": "vinyl-fence",
+      "familyCode": "VF",
+      "lookupToolName": "lookup_vinyl_fence",
+      "aliases": ["vinyl fence", "vinyl fencing", "pvc fence", "pvc fencing"],
+      "defaultSubtype": "panel",
+      "subtypes": [
+        {
+          "name": "panel",
+          "aliases": ["panel", "panels", "section", "sections", "fence panel", "fence section"],
+          "fixedFilters": { "unit_name": "Panel" },
+          "defaultFilters": { "width_ft": 8 },
+          "allowedFilters": ["design", "height_ft", "width_ft", "color", "fence_privacy"],
+          "impliedFilters": [
+            {
+              "when": { "fence_privacy": "Full Privacy" },
+              "apply": { "design": "Privacy" }
+            }
+          ],
+          "filterAliases": {
+            "fence_privacy": {
+              "privacy": "Full Privacy",
+              "full privacy": "Full Privacy",
+              "solid": "Full Privacy",
+              "semi privacy": "Semi-Privacy",
+              "semi-private": "Semi-Privacy",
+              "semi": "Semi-Privacy",
+              "open": "Open / non-privacy",
+              "non privacy": "Open / non-privacy",
+              "non-privacy": "Open / non-privacy",
+              "picket": "Open / non-privacy"
+            }
+          }
+        },
+        {
+          "name": "gate",
+          "aliases": ["gate", "gates", "door", "doors"],
+          "fixedFilters": { "unit_name": "Gate" },
+          "allowedFilters": ["design", "height_ft", "width_ft", "color", "fence_privacy"]
+        },
+        {
+          "name": "post",
+          "aliases": ["post", "posts", "pole", "poles"],
+          "fixedFilters": { "unit_name": "Post" },
+          "allowedFilters": ["design", "height_ft", "color"]
+        },
+        {
+          "name": "hardware",
+          "aliases": ["hardware", "bracket", "brackets", "hinge", "hinges", "latch", "latches", "kit", "kits"],
+          "fixedFilters": { "unit_name": "Hardware" },
+          "allowedFilters": ["design", "color"]
+        }
+      ]
+    },
+    {
+      "name": "aluminum-fence",
+      "familyCode": "AF",
+      "lookupToolName": "lookup_aluminum_fence",
+      "aliases": ["aluminum fence", "aluminum fencing", "ornamental fence", "metal fence"],
+      "defaultSubtype": "panel",
+      "subtypes": [
+        {
+          "name": "panel",
+          "aliases": ["panel", "panels", "section", "sections", "fence panel", "fence section"],
+          "fixedFilters": { "unit_name": "Panel" },
+          "allowedFilters": ["style", "height_in", "width_in", "color"]
+        },
+        {
+          "name": "gate",
+          "aliases": ["gate", "gates", "door", "doors"],
+          "fixedFilters": { "unit_name": "Gate" },
+          "allowedFilters": ["style", "height_in", "width_in", "color"]
+        },
+        {
+          "name": "post",
+          "aliases": ["post", "posts", "pole", "poles"],
+          "fixedFilters": { "unit_name": "Post" },
+          "allowedFilters": ["style", "height_in", "color"]
+        }
+      ]
+    },
+    {
+      "name": "vinyl-railing",
+      "familyCode": "VR",
+      "lookupToolName": "lookup_vinyl_railing",
+      "aliases": ["vinyl railing", "railing", "railings", "deck railing"],
+      "defaultSubtype": "section-kit",
+      "subtypes": [
+        {
+          "name": "section-kit",
+          "aliases": ["section kit", "kit", "kits", "railing kit", "railing section"],
+          "fixedFilters": { "unit_name": "Section Kit" },
+          "allowedFilters": ["color", "height_in", "length_ft", "baluster_material", "baluster_shape", "baluster_color"]
+        }
+      ]
+    },
+    {
+      "name": "composite-board",
+      "familyCode": "CD",
+      "lookupToolName": "lookup_composite_decking",
+      "aliases": ["composite board", "composite decking", "deck board", "decking", "deck boards"],
+      "defaultSubtype": "board",
+      "subtypes": [
+        {
+          "name": "board",
+          "aliases": ["board", "boards", "deck board", "deck boards", "decking"],
+          "fixedFilters": { "unit_name": "Board" },
+          "allowedFilters": ["collection", "color", "length_ft", "edge"]
+        },
+        {
+          "name": "fascia-board",
+          "aliases": ["fascia", "fascia board", "fascia boards"],
+          "fixedFilters": { "unit_name": "Fascia Board" },
+          "allowedFilters": ["collection", "color", "length_ft"]
+        }
+      ]
+    },
+    {
+      "name": "temporary-fence",
+      "familyCode": "TF",
+      "lookupToolName": "lookup_temporary_fence",
+      "aliases": ["temporary fence", "temp fence", "construction fence"],
+      "defaultSubtype": "section",
+      "subtypes": [
+        {
+          "name": "section",
+          "aliases": ["section", "sections", "panel", "panels"],
+          "fixedFilters": { "unit_name": "Section" },
+          "allowedFilters": ["height_ft", "width_ft"]
+        },
+        {
+          "name": "stand",
+          "aliases": ["stand", "stands", "base", "bases", "foot", "feet"],
+          "fixedFilters": { "unit_name": "Stand" },
+          "allowedFilters": []
+        },
+        {
+          "name": "clamp",
+          "aliases": ["clamp", "clamps", "coupler", "couplers"],
+          "fixedFilters": { "unit_name": "Clamp" },
+          "allowedFilters": []
+        },
+        {
+          "name": "hardware",
+          "aliases": ["hardware", "accessory", "accessories"],
+          "fixedFilters": { "unit_name": "Hardware" },
+          "allowedFilters": []
+        }
+      ]
+    },
+    {
+      "name": "chainlink-fence",
+      "familyCode": "CL",
+      "aliases": ["chain link fence", "chainlink fence", "chain link", "chainlink"],
+      "defaultSubtype": "mesh",
+      "subtypes": [
+        {
+          "name": "mesh",
+          "lookupToolName": "lookup_chain_link_fence_mesh",
+          "aliases": ["mesh", "fabric", "wire", "chain link mesh"],
+          "allowedFilters": ["color", "height_ft", "height_in", "mesh_type"]
+        },
+        {
+          "name": "pipe",
+          "lookupToolName": "lookup_chain_link_fence_pipe",
+          "aliases": ["pipe", "pipes", "rail", "rails", "post", "posts"],
+          "allowedFilters": ["color", "length_ft", "wall_thickness", "material_grade", "end_type", "pipe_diameter_label"]
+        }
+      ]
+    }
+  ]
+}

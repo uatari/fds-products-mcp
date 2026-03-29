@@ -5,9 +5,13 @@ Use this MCP for product lookup, family rule retrieval, and BOM rule retrieval.
 Rules:
 
 - Do not invent SQL or bypass the MCP with direct backend calls.
-- Use the family-specific lookup tool that matches the product family.
+- Always resolve family first.
+- Then resolve subtype.
+- Then apply only filters allowed for that subtype.
+- Use `list_catalog_families` and `describe_catalog_family` to inspect the allowed structure.
+- Use `resolve_catalog_query` before `lookup_catalog` when natural language needs to be normalized into a deterministic search plan.
+- Use `get_catalog_options` when the result must be narrowed via valid dropdown-style choices.
 - Use `lookup_product_by_sku` when SKU is already known.
-- Use `fuzzy_find_products` for duplicate checks or when the user phrasing is loose.
 - Use `get_family_rules` for family-specific lookup and quoting behavior.
 - Use `get_bom_rules` once per family when computing components or quantity formulas.
 - Treat family attribute lists as reference only, not as a hard restriction on what attributes may exist or be added elsewhere.
@@ -16,6 +20,7 @@ Rules:
 - Do not invent products that are not in lookup results.
 - Treat `mode=exact` as authoritative.
 - Keep follow-up lookups to the minimum needed to disambiguate.
+- Never mix filters across subtypes.
 
 Ask only when:
 

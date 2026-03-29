@@ -4,10 +4,9 @@ Deterministic MCP server for product lookup, family rules, and BOM-rule retrieva
 
 Use this MCP for:
 
-- product-adder duplicate checks
 - on-the-fly quote lookups
 - VAPI backend product resolution
-- family-specific pricing search
+- family-specific pricing search via resolver -> validated lookup
 - family rule retrieval from repo files
 - BOM rule retrieval from repo files
 
@@ -52,17 +51,14 @@ node src/index.js
 
 ## Main Tools
 
+- `list_catalog_families`
+- `describe_catalog_family`
+- `resolve_catalog_query`
+- `get_catalog_options`
+- `lookup_catalog`
 - `lookup_product_by_sku`
-- `fuzzy_find_products`
 - `get_bom_rules`
 - `get_family_rules`
-- `lookup_vinyl_fence`
-- `lookup_aluminum_fence`
-- `lookup_vinyl_railing`
-- `lookup_composite_decking`
-- `lookup_temporary_fence`
-- `lookup_chain_link_fence_mesh`
-- `lookup_chain_link_fence_pipe`
 
 ## Response Shape
 
@@ -76,22 +72,14 @@ Family lookup tools return:
 
 This keeps lookup behavior deterministic and reusable.
 
-## Fuzzy Matching
+## Search Flow
 
-Use `fuzzy_find_products` for duplicate checks or loose phrasing.
+The resolver-based flow is:
 
-It scores candidates using:
+1. `list_catalog_families`
+2. `describe_catalog_family`
+3. `resolve_catalog_query`
+4. `get_catalog_options` if more narrowing is needed
+5. `lookup_catalog`
 
-- normalized name token overlap
-- family and unit hints
-- dimension matches from the query text
-
-Example:
-
-```json
-{
-  "query": "White Vinyl Privacy Fence 5'H x 6'W",
-  "family_name": "vinyl-fence",
-  "unit_name": "Panel"
-}
-```
+The server always resolves family first, then subtype, then validates filters against that subtype before querying.
