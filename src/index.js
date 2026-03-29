@@ -3,7 +3,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import http from "node:http";
 import { z } from "zod";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -495,6 +496,7 @@ function readFamilyRule(familyName) {
   };
 }
 
+function createServer() {
 const server = new McpServer({
   name: config.serverName || "fds-sku-resolver",
   version: packageJson.version || config.serverVersion || "0.1.0"
@@ -552,12 +554,33 @@ for (const toolConfig of config.familyTools) {
     async (query) => asTextResult(await executeFamilyLookup(toolConfig, query))
   );
 }
+return server;
+} // end createServer()
 
 async function main() {
   failIfMissingRuntimeConfig();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  process.stderr.write(`${config.serverName || packageJson.name} MCP ${packageJson.version} running on stdio via ${runtimeBackendLabel()}\n`);
+  const port = parseInt(process.env.MCP_PORT || "8000", 10);
+  const apiKey = process.env.MCP_API_KEY || "";
+
+  const httpServer = http.createServer(async (req, res) => {
+    if (apiKey && req.headers["x-api-key"] !== apiKey) {
+      res.writeHead(401).end("Unauthorized");
+      return;
+    }
+    if (req.url !== "/mcp" || (req.method !== "POST" && req.method !== "GET" && req.method !== "DELETE")) {
+      res.writeHead(404).end("Not found");
+      return;
+    }
+    const server = createServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on("close", () => { transport.close(); server.close(); });
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  });
+
+  httpServer.listen(port, () => {
+    process.stderr.write(`${config.serverName || packageJson.name} MCP ${packageJson.version} listening on :${port}/mcp via ${runtimeBackendLabel()}\n`);
+  });
 }
 
 main().catch((error) => {
