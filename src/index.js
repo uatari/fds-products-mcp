@@ -100,8 +100,8 @@ function searchTokens(value) {
 function normalizeUnitHint(value) {
   const normalized = normalizeSearchText(value);
   const map = {
-    panel: "section",
-    section: "section",
+    panel: "panel",
+    section: "panel",
     "section kit": "section kit",
     gate: "gate",
     post: "post",
